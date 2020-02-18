@@ -48,8 +48,49 @@ jobs:
         rustup update stable --no-self-update
         rustup default stable
         rustup component add llvm-tools-preview
-        echo "##vso[task.setvariable variable=WASM_NM;]$(rustc --print sysroot|sed 's|C:|/c|'|sed 's|\\|/|g')/lib/rustlib/x86_64-pc-windows-msvc/bin/llvm-nm.exe"
-      displayName: Install llvm-nm (Windows)
+      displayName: Install LLVM tools (Windows)
       condition: and(succeeded(), eq( variables['Agent.OS'], 'Windows_NT' ))
-    - script: make -j4
+    - bash: |
+        echo "##vso[task.setvariable variable=LLVM_AR]$(which llvm-ar)"
+      displayName: Find llvm-ar (!Windows)
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - script: |
+        echo ##vso[task.setvariable variable=LLVM_AR]%CD%\citools\clang-rust\bin\llvm-ar.exe
+      displayName: Find llvm-ar (Windows)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+    - bash: |
+        echo "##vso[task.setvariable variable=LLVM_NM]$(which llvm-nm)"
+      displayName: Find llvm-nm (!Windows)
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - bash: |
+        echo "##vso[task.setvariable variable=LLVM_NM]$(rustc --print sysroot)\\lib\\rustlib\\x86_64-pc-windows-msvc\\bin\\llvm-nm.exe"
+      displayName: Find llvm-nm (Windows)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: 3.7
+        addToPath: true
+      displayName: Select Python
+      name: python
+    - bash: |
+        echo "##vso[task.setvariable variable=PYTHON]$(python.pythonLocation)/python"
+      displayName: Find Python (!Windows)
+      condition: and(succeeded(), not(eq(variables['Agent.OS'], 'Windows_NT')))
+    - script: |
+        echo ##vso[task.setvariable variable=PYTHON]$(python.pythonLocation)\python.exe
+      displayName: Find Python (Windows)
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+    - task: CMake@1
+      inputs:
+        workingDirectory: $(Build.BinariesDirectory)
+        cmakeArgs: -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Generic -DCMAKE_AR=$(LLVM_AR) -DCMAKE_NM=$(LLVM_NM) -DCMAKE_C_COMPILER=clang -DPython_EXECUTABLE=$(PYTHON) -S $(Build.SourcesDirectory)
+      displayName: Configure
+    - task: CMake@1
+      inputs:
+        workingDirectory: $(Build.BinariesDirectory)
+        cmakeArgs: --build .
       displayName: Build
+      env: { "VERBOSE": "1" }
+    - publish: $(Build.BinariesDirectory)/sysroot
+      artifact: wasi-libc
+      condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
