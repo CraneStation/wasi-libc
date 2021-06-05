@@ -75,6 +75,7 @@ __funcs_on_exit
 __funcs_on_exit
 __funcs_on_quick_exit
 __funcs_on_quick_exit
+__futimesat
 __fwritable
 __fwritex
 __fwriting
@@ -647,6 +648,7 @@ ftello64
 ftime
 ftruncate
 futimens
+futimesat
 fwide
 fwprintf
 fwrite
@@ -1120,6 +1122,7 @@ uselocale
 usleep
 utime
 utimensat
+utimes
 vasprintf
 vdprintf
 versionsort

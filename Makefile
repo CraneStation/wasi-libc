@@ -136,6 +136,7 @@ LIBC_TOP_HALF_MUSL_SOURCES = \
         env/setenv.c \
         env/unsetenv.c \
         unistd/posix_close.c \
+        stat/futimesat.c \
     ) \
     $(filter-out %/procfdname.c %/syscall.c %/syscall_ret.c %/vdso.c %/version.c, \
                  $(wildcard $(LIBC_TOP_HALF_MUSL_SRC_DIR)/internal/*.c)) \

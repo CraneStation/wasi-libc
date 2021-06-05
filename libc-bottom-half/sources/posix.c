@@ -139,6 +139,28 @@ int utime(const char *path, const struct utimbuf *times) {
                      0);
 }
 
+int utimes(const char *path, const struct timeval times[2]) {
+    char *relative_path;
+    int dirfd = find_relpath(path, &relative_path);
+
+    // If we can't find a preopen for it, indicate that we lack capabilities.
+    if (dirfd == -1) {
+        errno = ENOTCAPABLE;
+        return -1;
+    }
+
+    return __wasilibc_nocwd_utimensat(
+             dirfd, relative_path,
+                     times ? ((struct timespec [2]) {
+                                 { .tv_sec = times[0].tv_sec,
+				   .tv_nsec = times[0].tv_usec * 1000 },
+                                 { .tv_sec = times[1].tv_sec,
+				   .tv_nsec = times[1].tv_usec * 1000 },
+                             })
+                           : NULL,
+                     0);
+}
+
 int unlink(const char *path) {
     char *relative_path;
     int dirfd = find_relpath(path, &relative_path);

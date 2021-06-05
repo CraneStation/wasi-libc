@@ -2,7 +2,9 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <errno.h>
+#ifdef __wasilibc_unmodified_upstream // WASI has no syscall
 #include "syscall.h"
+#endif
 
 int __futimesat(int dirfd, const char *pathname, const struct timeval times[2])
 {
@@ -11,7 +13,12 @@ int __futimesat(int dirfd, const char *pathname, const struct timeval times[2])
 		int i;
 		for (i=0; i<2; i++) {
 			if (times[i].tv_usec >= 1000000ULL)
+#ifdef __wasilibc_unmodified_upstream // WASI has no syscall
 				return __syscall_ret(-EINVAL);
+#else
+				errno = EINVAL;
+				return -1;
+#endif
 			ts[i].tv_sec = times[i].tv_sec;
 			ts[i].tv_nsec = times[i].tv_usec * 1000;
 		}
