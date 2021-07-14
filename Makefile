@@ -10,16 +10,12 @@ SYSROOT ?= $(CURDIR)/sysroot
 INSTALL_DIR ?= /usr/local
 # single or posix
 THREAD_MODEL ?= single
+# dlmalloc or none
+MALLOC_IMPL ?= dlmalloc
 # yes or no
-BUILD_DLMALLOC ?= yes
 BUILD_LIBC_TOP_HALF ?= yes
 # The directory where we're store intermediate artifacts.
 OBJDIR ?= $(CURDIR)/build
-
-# Check dependencies.
-ifneq ($(BUILD_DLMALLOC),yes)
-$(error build currently depends on BUILD_DLMALLOC=yes)
-endif
 
 # Variables from this point on are not meant to be overridable via the
 # make command-line.
@@ -220,8 +216,12 @@ objs = $(patsubst $(CURDIR)/%.c,$(OBJDIR)/%.o,$(1))
 DLMALLOC_OBJS = $(call objs,$(DLMALLOC_SOURCES))
 LIBC_BOTTOM_HALF_ALL_OBJS = $(call objs,$(LIBC_BOTTOM_HALF_ALL_SOURCES))
 LIBC_TOP_HALF_ALL_OBJS = $(call objs,$(LIBC_TOP_HALF_ALL_SOURCES))
-ifeq ($(BUILD_DLMALLOC),yes)
+ifeq ($(MALLOC_IMPL),dlmalloc)
 LIBC_OBJS += $(DLMALLOC_OBJS)
+else ifeq ($(MALLOC_IMPL),none)
+# No object files to add.
+else
+$(error unknown malloc implementation $(MALLOC_IMPL))
 endif
 # Add libc-bottom-half's objects.
 LIBC_OBJS += $(LIBC_BOTTOM_HALF_ALL_OBJS)
@@ -458,6 +458,18 @@ finish: startup_files libc
 	done
 
 	#
+	# The build succeeded! The generated sysroot is in $(SYSROOT).
+	#
+
+# The check for defined and undefined symbols expects there to be a heap
+# alloctor (providing malloc, calloc, free, etc). Skip this step if the build
+# is done without a malloc implementation.
+ifneq ($(MALLOC_IMPL),none)
+finish: check-symbols
+endif
+
+check-symbols: startup_files libc
+	#
 	# Collect metadata on the sysroot and perform sanity checks.
 	#
 	mkdir -p "$(SYSROOT_SHARE)"
@@ -529,10 +541,6 @@ finish: startup_files libc
 	# Check that the computed metadata matches the expected metadata.
 	# This ignores whitespace because on Windows the output has CRLF line endings.
 	diff -wur "$(CURDIR)/expected/$(MULTIARCH_TRIPLE)" "$(SYSROOT_SHARE)"
-
-	#
-	# The build succeeded! The generated sysroot is in $(SYSROOT).
-	#
 
 install: finish
 	mkdir -p "$(INSTALL_DIR)"
