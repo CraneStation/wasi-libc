@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <stddefer.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wasi/file_utils.h>
@@ -382,16 +383,72 @@ void freeaddrinfo(struct addrinfo *p) {
 int getnameinfo(const struct sockaddr *restrict sa, socklen_t salen,
                 char *restrict host, socklen_t hostlen, char *restrict serv,
                 socklen_t servlen, int flags) {
-  (void)sa;
-  (void)salen;
-  (void)host;
-  (void)hostlen;
-  (void)serv;
-  (void)servlen;
-  (void)flags;
-  // TODO wasi-sockets
-  errno = EOPNOTSUPP;
-  return EAI_SYSTEM;
+  if (flags & ~(NI_NUMERICHOST | NI_NUMERICSERV | NI_NOFQDN | NI_NAMEREQD |
+                NI_DGRAM | NI_NUMERICSCOPE))
+    return EAI_BADFLAGS;
+  if (sa == NULL || salen < sizeof(sa->sa_family))
+    return EAI_FAMILY;
+
+  const void *address;
+  unsigned port, scope = 0;
+  if (sa->sa_family == AF_INET) {
+    if (salen < sizeof(struct sockaddr_in))
+      return EAI_FAMILY;
+    const struct sockaddr_in *addr4 = (const void *)sa;
+    address = &addr4->sin_addr;
+    port = ntohs(addr4->sin_port);
+  } else if (sa->sa_family == AF_INET6) {
+    if (salen < sizeof(struct sockaddr_in6))
+      return EAI_FAMILY;
+    const struct sockaddr_in6 *addr6 = (const void *)sa;
+    address = &addr6->sin6_addr;
+    port = ntohs(addr6->sin6_port);
+    scope = addr6->sin6_scope_id;
+  } else {
+    return EAI_FAMILY;
+  }
+
+  bool want_host = host != NULL && hostlen != 0;
+  bool want_serv = serv != NULL && servlen != 0;
+  if (!want_host && !want_serv)
+    return EAI_NONAME;
+  if (want_host && (flags & NI_NAMEREQD))
+    return EAI_NONAME;
+
+  char node[INET6_ADDRSTRLEN + sizeof("%4294967295")], number[6];
+  const char *service = number;
+  size_t node_len = 0, service_len = 0;
+  if (want_host) {
+    if (inet_ntop(sa->sa_family, address, node, sizeof(node)) == NULL)
+      return EAI_SYSTEM;
+    node_len = strlen(node);
+    if (scope != 0) {
+      snprintf(node + node_len, sizeof(node) - node_len, "%%%u", scope);
+      node_len = strlen(node);
+    }
+    if (node_len >= hostlen)
+      return EAI_OVERFLOW;
+  }
+  if (want_serv) {
+    const service_entry_t *entry =
+        flags & NI_NUMERICSERV ? NULL
+                               : __wasilibc_get_service_entry_by_port(port);
+    int protocol =
+        flags & NI_DGRAM ? SERVICE_PROTOCOL_UDP : SERVICE_PROTOCOL_TCP;
+    if (entry != NULL && (entry->protocol & protocol))
+      service = entry->s_name;
+    else
+      snprintf(number, sizeof(number), "%u", port);
+    service_len = strlen(service);
+    if (service_len >= servlen)
+      return EAI_OVERFLOW;
+  }
+
+  if (want_host)
+    memcpy(host, node, node_len + 1);
+  if (want_serv)
+    memcpy(serv, service, service_len + 1);
+  return 0;
 }
 
 struct hostent *gethostbyname(const char *name) {

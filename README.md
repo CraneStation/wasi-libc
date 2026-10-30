@@ -17,6 +17,14 @@ provided via the [wasi-threads] proposal.
 The easiest way to get started with this is to use [wasi-sdk], which includes a
 build of `wasi-libc` in its sysroot.
 
+## Address formatting on Preview 2 and Preview 3
+
+`getnameinfo()` formats IPv4 and IPv6 addresses, decimal scope IDs and
+ports without filesystem or network access. Unless `NI_NUMERICSERV` is
+set, known service names come from the built-in service database.
+Reverse hostname lookup is unsupported. If the caller requests a host output
+with `NI_NAMEREQD`, the function returns `EAI_NONAME`.
+
 ## Building from source
 
 To build a WASI sysroot from source, obtain a WebAssembly-supporting C compiler
