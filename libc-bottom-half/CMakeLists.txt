@@ -179,6 +179,7 @@ if (WASI STREQUAL "p3")
   list(APPEND bottom_half_sources
     sources/wasip3.c
     sources/wasip3_block_on.c
+    sources/wasip3_ip_name_lookup.c
     sources/wasip3_stdio.c
   )
 endif()
@@ -191,11 +192,10 @@ if (HAVE_WASM_LIBCALL_THREAD_CONTEXT)
   )
 endif()
 
-# Don't export symbols of generated code in shared libraries, so specifically
-# pass `-fvisibility=hidden`.
+# Keep low-level WASI bindings hidden in shared libraries.
 set_source_files_properties(sources/wasip2.c PROPERTIES
   COMPILE_OPTIONS -fvisibility=hidden)
-set_source_files_properties(sources/wasip3.c PROPERTIES
+set_source_files_properties(sources/wasip3.c sources/wasip3_ip_name_lookup.c PROPERTIES
   COMPILE_OPTIONS -fvisibility=hidden)
 
 add_object_library(bottom-half ${bottom_half_sources})

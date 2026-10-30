@@ -159,3 +159,10 @@ endfunction()
 
 wit_bindgen_edit(p2)
 wit_bindgen_edit(p3)
+
+# wit-bindgen 0.60.0 does not free optional DNS error text.
+add_custom_command(TARGET bindings-p3-edit POST_BUILD
+  COMMAND sed ${SED_INPLACE_ARGS}
+    "'/^void ip_name_lookup_error_code_free(/,/^}/s/break;/wasip3_option_string_free(\\&ptr->val.other);/'"
+    ${bottom_half}/sources/wasip3.c
+)

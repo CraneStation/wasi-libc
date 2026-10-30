@@ -89,6 +89,29 @@ meaning that `libc.so` requires this library to be present. This library is
 downloaded automatically as part of the build but it can also be manually
 specified with `-DBUILTINS_LIB=...`.
 
+## Asynchronous name lookup on Preview 3
+
+`<wasi/wasip3.h>` provides `ip_name_lookup_resolve_addresses_async`.
+It returns a subtask status and fills the result when the lookup completes.
+The existing `ip_name_lookup_resolve_addresses` and `getaddrinfo()` calls
+remain blocking, with unchanged signatures.
+
+For pending calls, keep the name bytes and result storage alive until
+completion or confirmed cancellation. Use `wasip3_waitable_*` to poll or wait
+alongside a timer.
+
+If `WASIP3_SUBTASK_STATE(status)` is `WASIP3_SUBTASK_RETURNED`, the caller
+owns the result. After use, free it with
+`ip_name_lookup_result_list_ip_address_error_code_free`.
+To cancel pending work, call `wasip3_subtask_cancel`. If it returns
+`WASIP3_SUBTASK_RETURNED`, the lookup completed and the caller owns its result.
+After confirmed cancellation, do not read or free the result.
+
+For a pending call, drop the handle after completion or confirmed cancellation.
+Do not cancel after a terminal event. Immediately completed calls have
+no handle to drop. Guest cancellation does not guarantee that the host stops
+a running OS lookup.
+
 ## Building in pthread support
 
 All targets in wasi-libc have `pthread_*`-related symbols defined. The behavior

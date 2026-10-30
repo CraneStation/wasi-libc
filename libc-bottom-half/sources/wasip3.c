@@ -1148,7 +1148,7 @@ void ip_name_lookup_ip_address_free(ip_name_lookup_ip_address_t *ptr) {
 void ip_name_lookup_error_code_free(ip_name_lookup_error_code_t *ptr) {
   switch ((int32_t) ptr->tag) {
     case 5: {
-      break;
+      wasip3_option_string_free(&ptr->val.other);
     }
   }
 }
