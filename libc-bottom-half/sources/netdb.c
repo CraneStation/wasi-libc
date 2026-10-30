@@ -305,10 +305,15 @@ int getaddrinfo(const char *restrict host, const char *restrict serv,
     if (!ip_name_lookup_resolve_addresses(
             __wasi_sockets_utils__borrow_network(), &name, &stream, &error))
       return map_error(&error);
+    defer ip_name_lookup_resolve_address_stream_drop_own(stream);
     ip_name_lookup_borrow_resolve_address_stream_t stream_borrow =
         ip_name_lookup_borrow_resolve_address_stream(stream);
     poll_own_pollable_t pollable;
     pollable.__handle = 0;
+    defer {
+      if (pollable.__handle != 0)
+        poll_pollable_drop_own(pollable);
+    }
 #else
     ip_name_lookup_list_ip_address_t addresses;
     if (!ip_name_lookup_resolve_addresses(&name, &addresses, &error))
@@ -348,11 +353,7 @@ int getaddrinfo(const char *restrict host, const char *restrict serv,
         return EAI_MEMORY;
     }
 
-#ifdef __wasip2__
-    if (pollable.__handle != 0)
-      poll_pollable_drop_own(pollable);
-    ip_name_lookup_resolve_address_stream_drop_own(stream);
-#else
+#ifndef __wasip2__
     ip_name_lookup_list_ip_address_free(&addresses);
 #endif
   }

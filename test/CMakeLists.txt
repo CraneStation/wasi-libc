@@ -465,6 +465,17 @@ endif()
 add_wasilibc_test(append.c FS)
 add_wasilibc_test(argv_two_args.c ARGV foo bar)
 add_wasilibc_test(clock_nanosleep.c)
+if(WASI STREQUAL "p2")
+  add_wasilibc_test(getaddrinfo-cleanup.c NOSHARED
+    CFLAGS -UNDEBUG -Wno-unused-parameter LDFLAGS
+    -Wl,--wrap=malloc
+    -Wl,--wrap=ip_name_lookup_resolve_addresses
+    -Wl,--wrap=ip_name_lookup_method_resolve_address_stream_resolve_next_address
+    -Wl,--wrap=ip_name_lookup_method_resolve_address_stream_subscribe
+    -Wl,--wrap=ip_name_lookup_resolve_address_stream_drop_own
+    -Wl,--wrap=poll_pollable_drop_own
+    -Wl,--wrap=poll_method_pollable_block)
+endif()
 add_wasilibc_test(chdir.c FS)
 add_wasilibc_test(close.c FS)
 add_wasilibc_test(pread.c FS)
