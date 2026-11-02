@@ -20,11 +20,11 @@ jobs:
           # Test a number of operating systems and architectures to make sure
           # wasi-libc builds on these platforms by default.
           - name: Build on Linux x86_64
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 19
             upload: linux-x86_64-clang-19
           - name: Build on Linux aarch64
-            os: ubuntu-24.04-arm
+            os: ubuntu-26.04-arm
             clang_version: 19
             upload: linux-aarch64-clang-19
           - name: Build on macOS aarch64
@@ -49,7 +49,7 @@ jobs:
             upload: linux-x86_64-clang-11
             args: -DSETJMP=OFF -DBUILD_SHARED=OFF -DENABLE_WERROR=OFF
           - name: Build with LLVM 18
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 18
             upload: linux-x86_64-clang-18
 
@@ -59,103 +59,103 @@ jobs:
           # to CMake. For now this only runs tests on Linux with Clang 16,
           # but that can be expanded as necessary in the future too.
           - name: Test wasm32-wasi
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             upload: wasm32-wasi
             args: -DTARGET_TRIPLE=wasm32-wasi
 
           - name: Test wasm32-wasip1
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             upload: wasm32-wasip1
             args: -DTARGET_TRIPLE=wasm32-wasip1
 
           - name: Test wasm32-wasip2
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 22
             test: true
             upload: wasm32-wasip2
             args: -DTARGET_TRIPLE=wasm32-wasip2
 
           - name: Test wasm32-wasip1-threads
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             upload: wasm32-wasip1-threads
             args: -DTARGET_TRIPLE=wasm32-wasip1-threads
 
           - name: Test wasm32-wasip1 in V8
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             args: -DTARGET_TRIPLE=wasm32-wasip1 -DTEST_WITH_V8=ON
 
           - name: Test wasm32-wasip1-threads in V8
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             args: -DTARGET_TRIPLE=wasm32-wasip1-threads -DTEST_WITH_V8=ON
 
           - name: Test wasm32-wasi-simd
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             upload: wasm32-wasi-simd
             args: -DSIMD=ON -DCHECK_SYMBOLS=OFF
 
           - name: Test wasm32-wasip1 (debug)
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             args: -DCMAKE_BUILD_TYPE=Debug
 
           - name: Test wasm32-wasip2 (debug)
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 22
             test: true
             args: -DCMAKE_BUILD_TYPE=Debug -DTARGET_TRIPLE=wasm32-wasip2
 
           - name: Test wasm32-wasip1-threads (debug)
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             args: -DCMAKE_BUILD_TYPE=Debug -DTARGET_TRIPLE=wasm32-wasip1-threads
 
           - name: Test wasm32-wasip3
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 22
             test: true
             upload: wasm32-wasip3
             args: -DTARGET_TRIPLE=wasm32-wasip3 -DCHECK_SYMBOLS=OFF
 
           - name: Test wasm32-wasip3 (debug)
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: wasi-sdk-34.0-rc.3
             test: true
             args: -DCMAKE_BUILD_TYPE=Debug -DTARGET_TRIPLE=wasm32-wasip3
 
           - name: Test wasm32-wasip3 coop-threads
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: wasi-sdk-34.0-rc.3
             test: true
             args: -DTARGET_TRIPLE=wasm32-wasip3 -DENABLE_COOP_THREADS=ON
 
           - name: Test wasm32-wasip3 coop-threads (debug)
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: wasi-sdk-34.0-rc.3
             test: true
             args: -DCMAKE_BUILD_TYPE=Debug -DTARGET_TRIPLE=wasm32-wasip3 -DENABLE_COOP_THREADS=ON
 
           - name: Test emmalloc
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 20
             test: true
             args: -DMALLOC=emmalloc
 
           - name: Test LTO
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 22
             test: true
             args: -DLTO=full -DTARGET_TRIPLE=wasm32-wasip2 -DCHECK_SYMBOLS=OFF
@@ -173,7 +173,7 @@ jobs:
             args: -DTARGET_TRIPLE=wasm32-wasip2
 
           - name: Test LLVM 22
-            os: ubuntu-24.04
+            os: ubuntu-26.04
             clang_version: 22
             test: true
             args: -DTARGET_TRIPLE=wasm32-wasip2
@@ -221,7 +221,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-15, windows-2025]
+        os: [ubuntu-26.04, macos-15, windows-2025]
     steps:
     - uses: actions/checkout@v6
       with:
@@ -243,7 +243,7 @@ jobs:
 
   clang-format:
     name: Clang Format
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/checkout@v6
       with:
@@ -262,7 +262,7 @@ jobs:
 
   rustfmt:
     name: Rustfmt
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/checkout@v6
       with:
@@ -274,7 +274,7 @@ jobs:
 
   bindings:
     name: Ensure wit-bingen bindings are up-to-date
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
     - uses: actions/checkout@v6
       with:
@@ -290,7 +290,7 @@ jobs:
   # copy of wasi-libc.
   python:
     name: Test Python ${{ matrix.name }}
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     strategy:
       fail-fast: false
       matrix:
@@ -343,7 +343,7 @@ jobs:
   # correctly.
   ci-status:
     name: Record the result of this workflow
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs:
       - buildlibc
       - headerstest

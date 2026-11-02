@@ -1,4 +1,4 @@
-set(major 18)
+set(major 22)
 find_program(CLANG_FORMAT NAMES clang-format-${major} clang-format)
 
 if (CLANG_FORMAT)
