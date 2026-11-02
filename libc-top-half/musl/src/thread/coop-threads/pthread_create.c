@@ -362,17 +362,15 @@ int __pthread_create(pthread_t *restrict res,
   /* Instead of `__clone`, WASIP3 uses a host API to instantiate a new version
    * of the current module and start executing the entry function.  */
   ret = wasip3_thread_new_indirect(__wasi_coop_thread_start, (void *)args);
-
-  // Can't collide with the implicit thread ID of the main thread, and musl
-  // doesn't support tids higher than that, so if that pops out then just trap.
-  // In theory this is pretty unlikely to hit...
-  if (ret >= MAIN_THREAD_TID)
-    __builtin_trap();
-
   new->tid = ret;
 
   // Link the new thread into the thread list
-  if (ret >= 0) {
+  if (ret != -1) {
+    // Can't collide with the implicit thread ID of the main thread, and musl
+    // doesn't support tids higher than that, so if that pops out then just trap.
+    // In theory this is pretty unlikely to hit...
+    if (ret >= MAIN_THREAD_TID)
+      __builtin_trap();
     new->next = self->next;
     new->prev = self;
     new->next->prev = new;
@@ -380,11 +378,8 @@ int __pthread_create(pthread_t *restrict res,
   } else {
     if (!--libc.threads_minus_1)
       libc.need_locks = 0;
-  }
-
-  if (ret < 0) {
     free(map);
-    return -ret;
+    return EAGAIN;
   }
 
   // Eagerly run the newly-created thread
