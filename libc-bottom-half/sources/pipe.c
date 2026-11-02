@@ -20,16 +20,16 @@ __attribute__((import_module("$root"),
 stream_new_unit(void);
 __attribute__((import_module("$root"),
                import_name("[stream-drop-readable-unit]"))) extern void
-    stream_drop_readable_unit(uint32_t);
+stream_drop_readable_unit(uint32_t);
 __attribute__((import_module("$root"),
                import_name("[stream-drop-writable-unit]"))) extern void
-    stream_drop_writable_unit(uint32_t);
+stream_drop_writable_unit(uint32_t);
 __attribute__((import_module("$root"),
                import_name("[stream-cancel-read-unit]"))) extern uint32_t
-    stream_cancel_read_unit(uint32_t);
+stream_cancel_read_unit(uint32_t);
 __attribute__((import_module("$root"),
                import_name("[stream-cancel-write-unit]"))) extern uint32_t
-    stream_cancel_write_unit(uint32_t);
+stream_cancel_write_unit(uint32_t);
 __attribute__((import_module("$root"),
                import_name("[async-lower][stream-write-unit]"))) extern uint32_t
 stream_write_unit(uint32_t stream, const void *ptr, size_t len);
