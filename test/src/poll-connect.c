@@ -166,6 +166,16 @@ int main() {
       data[i] = 42;
     }
 
+    // The socket may not be immediately writable here since the host may
+    // still be flushing the previous `send` above, so wait for it to become
+    // writable.
+    {
+      struct pollfd fd = {
+          .fd = server_client, .events = POLLWRNORM, .revents = 0};
+      errno = 0;
+      TEST2(poll(&fd, 1, 5000) == 1);
+    }
+
     // Write until we hit backpressure, keeping track of how much was written.
     size_t write_total = 0;
     while (1) {
