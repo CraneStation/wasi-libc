@@ -5,8 +5,9 @@
 #include <wasi/api.h>
 #include <wasi/descriptor_table.h>
 #include <wasi/file_utils.h>
+#include <wasi/report-error.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__)
 #include <stddefer.h>
 #endif
 
@@ -569,6 +570,46 @@ static int ppoll_impl(struct pollfd *fds, size_t nfds,
   }
 
   return state.event_count;
+}
+
+#elif defined(__webp2__)
+
+static int ppoll_impl(struct pollfd *fds, size_t nfds,
+                      const struct timespec *timeout) {
+  int ready = 0;
+  for (size_t i = 0; i < nfds; i++) {
+    struct pollfd *pollfd = &fds[i];
+    if (pollfd->fd < 0) {
+      continue;
+    }
+
+    descriptor_table_entry_t entry;
+    if (descriptor_table_get(pollfd->fd, &entry)) {
+      pollfd->revents = POLLNVAL;
+    } else {
+      if (entry.vtable->read) {
+        pollfd->revents = pollfd->events & POLLRDNORM;
+      }
+      if (entry.vtable->write) {
+        pollfd->revents = pollfd->events & POLLWRNORM;
+      }
+    }
+    if (pollfd->revents != 0) {
+      ready++;
+    }
+  }
+
+  // We cannot actually sit and wait for files to become available, but because
+  // our stdin, stdout, and stderr are always ready, most user code should
+  // never hit this.
+  bool zero_timeout = timeout && timeout->tv_sec == 0 && timeout->tv_nsec == 0;
+  if (ready == 0 && !zero_timeout) {
+    // If we actually return from this, we risk user code going into an
+    // infinite loop. Therefore we noisily exit.
+    __wasilibc_report_error("blocking ppoll is not supported");
+    exit(1);
+  }
+  return ready;
 }
 
 #else

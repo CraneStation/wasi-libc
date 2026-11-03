@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <assert.h>
-#include <wasi/api.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -36,6 +37,7 @@ static_assert(DT_UNKNOWN == __WASI_FILETYPE_UNKNOWN, "Value mismatch");
 #include <wasi/wasip3_block.h>
 #endif
 
+#ifndef __webp2__
 // Grows a buffer to be large enough to hold a certain amount of data.
 static struct dirent* grow(struct dirent **buffer, size_t *buffer_size, size_t target_size) {
   if (*buffer_size < target_size) {
@@ -52,6 +54,7 @@ static struct dirent* grow(struct dirent **buffer, size_t *buffer_size, size_t t
   }
   return *buffer;
 }
+#endif
 
 #if defined(__wasip1__)
 struct dirent *readdir(DIR *dirp) {
@@ -325,6 +328,13 @@ struct dirent *readdir(DIR *dirp) {
     result = readdir_next(dirp);
   }
   return result;
+}
+#elif defined(__webp2__)
+struct dirent *readdir(DIR *dirp) {
+  (void)dirp;
+  WASILIBC_LOG_UNSUPPORTED("readdir");
+  errno = EBADF; // It is impossible to open a DIR anyway.
+  return NULL;
 }
 #else
 # error "Unknown WASI version"

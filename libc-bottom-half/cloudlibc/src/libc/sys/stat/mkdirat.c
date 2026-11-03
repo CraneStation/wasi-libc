@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -43,6 +44,12 @@ int __wasilibc_nocwd_mkdirat_nomode(int fd, const char *path) {
     return -1;
   }
   return 0;
+#elif defined(__webp2__)
+  (void)fd;
+  (void)path;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_mkdirat_nomode");
+  errno = EACCES;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

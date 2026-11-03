@@ -1,0 +1,48 @@
+package wasm:js;
+
+interface console {
+    log: func(msg: string);
+    warn: func(msg: string);
+}
+
+interface global {
+    resource performance {
+        now: func() -> f64;
+        time-origin: get() -> f64;
+    }
+    @external-id("performance")
+    global-performance: get() -> performance;
+
+    resource date {
+        now: static func() -> f64;
+    }
+
+    record new-error-options {
+        cause: option<string>, // TODO(webp2): cause -> option<JS-value>
+    }
+    resource error {
+        constructor(message: option<string>, options: option<new-error-options>); // TODO(webp2): message -> option<JS-value>
+    }
+    report-error: func(throwable: borrow<error>);
+
+    resource uint-8-array {
+        constructor(length: u32);
+        subarray: func(begin: u32, end: option<u32>) -> uint-8-array;
+    }
+
+    resource crypto {
+        // TODO(webp2): This is very jank, but basically, the whole design of
+        // Crypto.getRandomValues() doesn't make sense for the component model
+        // because it modifies its parameter in place. The component model has
+        // no concept of an out-parameter (nor should it, frankly), but in this
+        // case we have no choice but to uselessly copy an entire array for it
+        // to fill "in place" and then copy back to us. By passing a handle to
+        // a pre-existing Uint8Array we can at least avoid the first copy.
+        //
+        // We desperately need to find a better way to do this. Some new
+        // builtin? New web APIs?
+        get-random-values: func(typed-array: borrow<uint-8-array>) -> list<u8>;
+    }
+    @external-id("crypto")
+    global-crypto: get() -> crypto;
+}

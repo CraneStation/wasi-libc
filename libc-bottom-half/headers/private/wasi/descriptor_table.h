@@ -4,6 +4,7 @@
 #include <wasi/api.h>
 
 #ifndef __wasip1__
+
 #include <assert.h>
 #include <netinet/in.h>
 #include <stdlib.h>
@@ -125,8 +126,9 @@ static inline bool wasip3_io_state_blocked(wasip3_io_state_t *state) {
   return false;
 #endif
 }
-#endif
+#endif // __wasip3__
 
+#if defined(__wasip2__) || defined(__wasip3__)
 // Metadata for WASI reads which is used to delegate to `__wasilibc_read(...)`
 // to perform the actual read of a stream.
 typedef struct wasi_read_t {
@@ -137,7 +139,7 @@ typedef struct wasi_read_t {
   bool blocking;
   // The timeout, in nanoseconds, for this operation.
   monotonic_clock_duration_t timeout;
-#ifdef __wasip2__
+#if defined(__wasip2__)
   // The `wasi:io/streams.input-stream` that this is reading from.
   streams_borrow_input_stream_t input;
   // A required pointer to an owned pollable for `input`. This is lazily
@@ -159,7 +161,7 @@ typedef struct wasi_write_t {
   bool blocking;
   monotonic_clock_duration_t timeout;
 
-#ifdef __wasip2__
+#if defined(__wasip2__)
   streams_borrow_output_stream_t output;
   poll_own_pollable_t *pollable;
 #else
@@ -170,6 +172,7 @@ typedef struct wasi_write_t {
   void *eof_data;
 #endif
 } wasi_write_t;
+#endif // __wasip2__ || __wasip3__
 
 /**
  * Operations that are required of all descriptors registered as file
@@ -190,6 +193,7 @@ typedef struct descriptor_vtable_t {
   // =====================================================================
   // Generic I/O
 
+#if defined(__wasip2__) || defined(__wasip3__)
   /// Looks up metadata to perform a read operation for this stream. This is
   /// used to implement the `read` syscall, for example, and is also used with
   /// `poll` when waiting for readability.
@@ -201,6 +205,15 @@ typedef struct descriptor_vtable_t {
   int (*get_read_stream)(void *, wasi_read_t *);
   /// Same as `get_read_stream`, but for output streams.
   int (*get_write_stream)(void *, wasi_write_t *);
+#elif defined(__webp2__)
+  /// Implementation of `read`-the-function.
+  ssize_t (*read)(void *, void *buf, size_t nbyte);
+  /// Implementation of `write`-the-function.
+  ssize_t (*write)(void *, const void *buf, size_t nbyte);
+  /// The bottom half of the `fflush` function, flushing content to the output
+  /// device (i.e. the console).
+  void (*fflush)(void *);
+#endif
 
   /// Sets the nonblocking flag for this object to the specified value.
   int (*set_blocking)(void *, bool);
@@ -212,9 +225,11 @@ typedef struct descriptor_vtable_t {
   // =====================================================================
   // File-related APIs
 
+#if defined(__wasip2__) || defined(__wasip3__)
   /// Looks up a `wasi:filesystem/types.descriptor`, if present, from this
   /// object.
   int (*get_file)(void *, filesystem_borrow_descriptor_t *);
+#endif
   /// Implementation of `lseek`-the-function.
   off_t (*seek)(void *, off_t, int);
   /// Implementation of `fnctl(fd, F_GETFL)`.
@@ -363,6 +378,6 @@ static inline void __wasilibc_assert_no_descriptor_leaks(void) {}
 void __wasilibc_assert_no_descriptor_leaks(void);
 #endif
 
-#endif // __wasip1__
+#endif // !__wasip1__
 
 #endif // DESCRIPTOR_TABLE_H

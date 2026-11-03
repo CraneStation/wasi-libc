@@ -12,8 +12,17 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Build type to use" FORCE)
 endif()
 
-# Force a cross-compile to WASI at all times.
-set(CMAKE_SYSTEM_NAME WASI)
+set(TARGET_TRIPLE "wasm32-wasip1" CACHE STRING "WASI target to test")
+set(CMAKE_C_COMPILER_TARGET ${TARGET_TRIPLE})
+
+# Force a cross-compile to WASI or WEB at all times.
+if(TARGET_TRIPLE MATCHES "-wasi")
+  set(CMAKE_SYSTEM_NAME WASI)
+elseif(TARGET_TRIPLE MATCHES "-web")
+  set(CMAKE_SYSTEM_NAME WEB)
+else()
+  message(FATAL_ERROR "Unknown target triple: ${TARGET_TRIPLE}")
+endif()
 
 # I'm not entirely sure why this is necessary on Windows. This may be a bug in
 # CMake, I'm not sure. The problem is that, at least on CI, CMake detects that
@@ -25,9 +34,6 @@ set(CMAKE_SYSTEM_NAME WASI)
 if (CMAKE_HOST_WIN32)
   set(CMAKE_INCLUDE_SYSTEM_FLAG_C "-isystem ")
 endif()
-
-set(TARGET_TRIPLE "wasm32-wasip1" CACHE STRING "WASI target to test")
-set(CMAKE_C_COMPILER_TARGET ${TARGET_TRIPLE})
 
 # We're building libc, and the compiler being used may not have a wasm sysroot
 # for libc, so skip this check. Otherwise the `project` call below attempts a
@@ -60,6 +66,7 @@ option(CHECK_SYMBOLS "Whether or not to check the exported symbols of libc.a" OF
 set(WASI_SDK_VERSION "" CACHE STRING "Version information for wasi-sdk to embed in headers")
 option(ENABLE_WERROR "Whether to compile with `-Werror`" OFF)
 option(ENABLE_COOP_THREADS "Whether to compile with cooperative threads support" OFF)
+option(LOG_UNSUPPORTED_CALLS "Whether to log error messages when calling unsupported APIs" OFF)
 
 if(TARGET_TRIPLE MATCHES "-threads$")
   set(WASI p1)
@@ -79,8 +86,11 @@ elseif(TARGET_TRIPLE MATCHES "-wasip2$")
 elseif(TARGET_TRIPLE MATCHES "-wasip3$")
   set(WASI p3)
   set(SHARED ON)
+elseif(TARGET_TRIPLE MATCHES "-webp2$")
+  set(WEB p2)
+  set(SHARED ON)
 else()
-  message(FATAL_ERROR "Unknown WASI target triple: ${TARGET_TRIPLE}")
+  message(FATAL_ERROR "Unknown target triple: ${TARGET_TRIPLE}")
 endif()
 
 if(BUILD_SHARED)
@@ -143,18 +153,25 @@ if(SIMD)
     -D__wasilibc_simd_string)
 endif()
 
+if(LOG_UNSUPPORTED_CALLS)
+  add_compile_definitions(WASILIBC_LOG_UNSUPPORTED_CALLS)
+endif()
+
 if(WASI STREQUAL "p1")
   set(__wasip1__ ON)
 elseif(WASI STREQUAL "p2")
   set(__wasip2__ ON)
 elseif(WASI STREQUAL "p3")
   set(__wasip3__ ON)
+elseif(WEB STREQUAL "p2")
+  set(__webp2__ ON)
 else()
   message(FATAL_ERROR "Unknown WASI version: ${WASI}")
 endif()
 
 set(wasip2-version 0.2.12)
 set(wasip3-version 0.3.2)
+set(webp2-version 0.2.0)
 
 # =============================================================================
 # Detection of a libcall thread context for wasip3
@@ -204,6 +221,12 @@ add_link_options(
   -resource-dir ${tmp_resource_dir}
 )
 
+if(__webp2__)
+  # TODO(webp2): Manually instruct clang to look at our new webp2 sysroot until
+  # it has been patched in wasi-sdk to know about "webp2" as an OS.
+  add_link_options(-B${SYSROOT_LIB} -L${SYSROOT_LIB})
+endif()
+
 # Expose the public headers to the implementation. We use `-isystem` for
 # purpose for two reasons:
 #
@@ -251,7 +274,7 @@ check_c_compiler_flag(-fdefer-ts HAVE_FDEFER_TS)
 if(HAVE_FDEFER_TS)
   add_compile_options(-fdefer-ts)
 elseif(NOT WASI STREQUAL "p1")
-  message(FATAL_ERROR "wasip2/wasip3 require clang 22 or later for `-fdefer-ts`")
+  message(FATAL_ERROR "wasip2/wasip3/webp2 require clang 22 or later for `-fdefer-ts`")
 endif()
 
 # =============================================================================
@@ -372,6 +395,8 @@ if (WASI STREQUAL "p2")
   set(libc_extra_objects libc-bottom-half/sources/wasip2_component_type.o)
 elseif (WASI STREQUAL "p3")
   set(libc_extra_objects libc-bottom-half/sources/wasip3_component_type.o)
+elseif (WEB STREQUAL "p2")
+  set(libc_extra_objects libc-bottom-half/sources/webp2_component_type.o)
 endif()
 
 add_library(c SHARED EXCLUDE_FROM_ALL

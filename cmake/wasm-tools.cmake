@@ -5,7 +5,7 @@ if (NOT WASM_TOOLS_EXECUTABLE)
   ba_download(
     wasm-tools
     "https://github.com/bytecodealliance/wasm-tools"
-    "1.257.0"
+    "1.261.0"
   )
   ExternalProject_Get_Property(wasm-tools SOURCE_DIR)
   set(wasm_tools "${SOURCE_DIR}/wasm-tools")

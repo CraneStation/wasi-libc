@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include <assert.h>
-#include <wasi/api.h>
-#include <wasi/libc.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
+#include <wasi/api.h>
+#include <wasi/libc.h>
+#include <wasi/report-error.h>
 
-#ifndef __wasip1__
+#if defined(__wasip2__) || defined(__wasip3__)
 #include <stddefer.h>
 #include <wasi/file.h>
 #include <wasi/descriptor_table.h>
@@ -164,6 +165,12 @@ int __wasilibc_nocwd_openat_nomode(int fd, const char *path, int oflag) {
 
   // Update the descriptor table with the new handle
   return __wasilibc_add_file(new_handle, oflag);
+#elif defined(__webp2__)
+  (void)fd;
+  (void)path;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_openat_nomode");
+  errno = (oflag & O_CREAT) ? EACCES : ENOENT;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#ifndef __webp2__
+
 /**
  * Look up the given `path`, relative to the cwd, in the preopened directory
  * map. If a suitable entry is found, then the file descriptor for that entry
@@ -71,5 +73,7 @@ int __wasilibc_find_relpath_alloc(const char *path, const char **abs,
 #ifdef __cplusplus
 }
 #endif
+
+#endif // !__webp2__
 
 #endif

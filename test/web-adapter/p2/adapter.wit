@@ -1,0 +1,32 @@
+// A test-only adapter which implements `wasm:js` in terms of WASIp2. This is
+// objectively absurd but is intended to be temporary; as soon as there is a
+// build of a browser or JS shell that supports components and web APIs, tests
+// can run against that instead.
+//
+// Components built for webp2 import the interfaces in `web/p2/wit` which are
+// expected to be provided by a JS host. To run them in Wasmtime they're
+// composed with this adapter, which exports those interfaces. The adapter is
+// built against a stock `wasm32-wasip2` sysroot, not the webp2 libc being
+// tested, so it only imports WASI and the composition is runnable by any
+// WASIp2 host.
+//
+// Dependencies are resolved from `web/p2/wit` and `wasi/p2/wit`, see
+// `test/CMakeLists.txt`.
+package wasi-libc:web-adapter;
+
+world adapter {
+  export wasm:js/global;
+  @external-id("wasm:js/global/console")
+  export wasm:js/console;
+}
+
+// Components built for webp2 run `main` during instantiation and export
+// nothing, but Wasmtime needs an export to run. Test programs are additionally
+// linked with an implementation of this world, see `run.c`, which does nothing
+// since by the time it's invoked `main` has already finished.
+//
+// Note that ideally the adapter would export this instead, but
+// `wasm-tools compose` only re-exports the exports of the root component.
+world test-command {
+  export wasi:cli/run@0.2.12;
+}

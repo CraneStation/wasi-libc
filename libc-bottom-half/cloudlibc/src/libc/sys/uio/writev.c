@@ -3,11 +3,13 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include <sys/uio.h>
+
 #include <assert.h>
-#include <wasi/api.h>
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <wasi/api.h>
 
 #ifndef __wasip1__
 #include <wasi/descriptor_table.h>
@@ -32,7 +34,7 @@ static_assert(sizeof(struct iovec) == sizeof(__wasi_ciovec_t),
 #endif
 
 ssize_t writev(int fildes, const struct iovec *iov, int iovcnt) {
-  if (iovcnt < 0) {
+  if (iovcnt < 0 || IOV_MAX < iovcnt) {
     errno = EINVAL;
     return -1;
   }
@@ -46,7 +48,7 @@ ssize_t writev(int fildes, const struct iovec *iov, int iovcnt) {
     return -1;
   }
   return bytes_written;
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
   // Skip empty iovecs and then delegate to `read` with the first non-empty
   // iovec.
   while (iovcnt) {

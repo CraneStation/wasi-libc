@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <wasi/api.h>
 #include <errno.h>
 #include <unistd.h>
+#include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -38,6 +39,11 @@ int ftruncate(int fildes, off_t length) {
     translate_error(&error_code);
     return -1;
   }
+#elif defined(__webp2__)
+  (void)fildes;
+  WASILIBC_LOG_UNSUPPORTED("ftruncate");
+  errno = ENOSYS;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

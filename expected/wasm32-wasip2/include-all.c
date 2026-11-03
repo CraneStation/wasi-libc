@@ -176,5 +176,6 @@
 #include <wasi/wasip1.h>
 #include <wasi/wasip2.h>
 #include <wasi/wasip3.h>
+#include <wasi/webp2.h>
 #include <wchar.h>
 #include <wctype.h>

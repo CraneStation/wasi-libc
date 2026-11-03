@@ -1,7 +1,7 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <stddefer.h>
-#include <wasi/sockets_utils.h>
+#include <wasi/descriptor_table.h>
 
 int bind(int socket, const struct sockaddr *addr, socklen_t addrlen) {
   descriptor_table_entry_t entry;

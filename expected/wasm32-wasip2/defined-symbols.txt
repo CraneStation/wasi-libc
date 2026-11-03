@@ -357,6 +357,8 @@ __wasilibc_random
 __wasilibc_read
 __wasilibc_rename_newat
 __wasilibc_rename_oldat
+__wasilibc_report_error
+__wasilibc_report_errorf
 __wasilibc_reset_preopens
 __wasilibc_rmdirat
 __wasilibc_set_stream_errno
@@ -367,7 +369,11 @@ __wasilibc_stat
 __wasilibc_tell
 __wasilibc_unlinkat
 __wasilibc_unspecified_addr
+__wasilibc_utf8_abort_current
+__wasilibc_utf8_reset
+__wasilibc_utf8_write
 __wasilibc_utimens
+__wasilibc_validate_utf8
 __wasilibc_wasi_family_to_libc
 __wasilibc_wasi_to_sockaddr
 __wasilibc_write

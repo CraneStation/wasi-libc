@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -47,6 +48,13 @@ int __wasilibc_nocwd_symlinkat(const char *path1, int fd, const char *path2) {
     translate_error(&error_code);
     return -1;
   }
+#elif defined(__webp2__)
+  (void)path1;
+  (void)fd;
+  (void)path2;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_symlinkat");
+  errno = EACCES;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

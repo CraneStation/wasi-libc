@@ -56,9 +56,12 @@ elseif(NOT ENGINE OR ENGINE STREQUAL "")
   # By default a pinned version of Wasmtime is used that's kept relatively
   # up-to-date. Note though that `wasm32-wasip1-threads` requires an explicitly
   # older version of Wasmtime as the latest releases no longer support
-  # wasi-threads.
+  # wasi-threads, and web targets require sufficiently new versions of wasmtime
+  # that support new component model features.
   set(wasmtime_version v48.0.1)
-  if (TARGET_TRIPLE MATCHES "-threads")
+  if (WEB)
+    set(wasmtime_version v50.0.0)
+  elseif (TARGET_TRIPLE MATCHES "-threads")
     set(wasmtime_version v44.0.0)
   endif()
   ba_download(
@@ -144,16 +147,16 @@ function(add_test_executable executable_name src)
     #
     # Note that `-fvisibility=default` is used to make the generated
     # `__main_void` symbol from clang visible to wasi-libc itself.
-    target_link_options(${executable_name} PRIVATE -Wl,--skip-wit-component,-shared)
+    target_link_options(${executable_name} PRIVATE -Wl,--skip-wit-component,-shared,--entry=_start)
     target_compile_options(${executable_name} PRIVATE -fvisibility=default)
     add_custom_command(
       TARGET ${executable_name}
       POST_BUILD
       COMMAND
         ${wasm_tools} component link
-          $<TARGET_FILE:${executable_name}>
           "${SYSROOT_LIB}/libc.so"
           ${arg_SHARED_LIBS}
+          $<TARGET_FILE:${executable_name}>
           -o ${executable_name}
     )
     add_dependencies(${executable_name} wasm-tools)
@@ -191,6 +194,23 @@ function(add_test_executable executable_name src)
     target_link_libraries(${executable_name} PRIVATE
       -Wl,--whole-archive ${lib} -Wl,--no-whole-archive)
   endforeach()
+
+  # To run in the `wasmtime` CLI web targets are composed with an adapter
+  # that implements web APIs in terms of WASI APIs.
+  if (WEB)
+    target_link_libraries(${executable_name} PRIVATE
+      -Wl,--whole-archive web_test_command_bindings -Wl,--no-whole-archive)
+    add_custom_command(
+      TARGET ${executable_name}
+      POST_BUILD
+      COMMAND
+        ${wasm_tools} compose $<TARGET_FILE:${executable_name}>
+          -d ${WEB_ADAPTER} -o $<TARGET_FILE:${executable_name}> --quiet
+    )
+    set_property(TARGET ${executable_name} APPEND PROPERTY
+      LINK_DEPENDS ${WEB_ADAPTER})
+    add_dependencies(${executable_name} web-adapter wasm-tools)
+  endif()
 endfunction()
 
 # Adds a new test to run.
@@ -247,6 +267,9 @@ function(register_test test_name executable_name)
       $<$<BOOL:LTO>:-Wl,-mllvm=-wasm-use-legacy-eh=false>
     )
   endif()
+  if (WEB)
+    list(APPEND wasmtime_args --wasm component-model-implements,component-model-accessors)
+  endif()
 
   if (arg_FILE)
     set(test_program ${arg_FILE})
@@ -291,10 +314,16 @@ endfunction()
 # on a per-test basis. All other arguments are forwarded to `add_test_executable`
 # and `register_test`.
 function(add_test_pair test_name test_file)
-  set(options NOSHARED)
+  set(options NOSHARED FS NETWORK)
   set(oneValueArgs)
-  set(multiValueArgs)
+  set(multiValueArgs ARGV ENV)
   cmake_parse_arguments(PARSE_ARGV 1 arg "${options}" "${oneValueArgs}" "${multiValueArgs}")
+
+  # The webp2 target has no filesystem or network, and the host can't provide
+  # arguments or environment variables.
+  if (WEB AND (arg_FS OR arg_NETWORK OR arg_ARGV OR arg_ENV))
+    return()
+  endif()
 
   add_test_executable(${test_name} ${test_file} ${ARGN})
   register_test(${test_name} ${test_name} ${ARGN})
@@ -393,6 +422,152 @@ function(add_libc_test test_file)
   add_test_pair(${test_name} ${test_file} ${ARGN})
 endfunction()
 
+# Generates C bindings with `wit-bindgen` for `world` in `wit` into `out_dir`
+# and creates a static library `name` out of them.
+#
+# Note that `wit` may be a list of paths, see `wit-bindgen c --help`.
+#
+# Optional arguments:
+#
+# * `FLAGS a b c` - additional flags to pass to `wit-bindgen c`
+function(add_wit_bindgen_library name wit world out_dir)
+  cmake_parse_arguments(PARSE_ARGV 4 arg "" "" "FLAGS")
+
+  # Generated files are named after the world, without any package qualifier,
+  # in `snake_case`.
+  string(REGEX REPLACE ".*/" "" file ${world})
+  string(REPLACE "-" "_" file ${file})
+  add_custom_command(
+    OUTPUT
+      ${out_dir}/${file}.c
+      ${out_dir}/${file}.h
+      ${out_dir}/${file}_component_type.o
+    COMMAND
+      ${wit_bindgen} c ${wit} --world ${world} --out-dir ${out_dir} ${arg_FLAGS}
+    DEPENDS wit-bindgen ${wit}
+  )
+  add_library(${name} STATIC EXCLUDE_FROM_ALL
+    ${out_dir}/${file}.c
+    ${out_dir}/${file}_component_type.o)
+  target_include_directories(${name} PUBLIC ${out_dir})
+  target_compile_options(${name} PRIVATE -fPIC)
+endfunction()
+
+# ========= Web adapter =========================================
+#
+# Tests for the webp2 target import `wasm:js` interfaces which are normally
+# provided by a JS host. To run them in Wasmtime instead they're composed with
+# an adapter component, built here, which implements those interfaces with
+# WASIp2. See `web-adapter/p2/adapter.wit` for more information.
+
+if (WEB)
+  set(web_adapter_src "${CMAKE_CURRENT_SOURCE_DIR}/web-adapter/p2")
+  set(web_adapter_dir "${CMAKE_CURRENT_BINARY_DIR}/web-adapter")
+  set(web_adapter_wit
+    ${CMAKE_SOURCE_DIR}/web/p2/wit/deps/web.wit
+    ${CMAKE_SOURCE_DIR}/wasi/p2/wit
+    ${web_adapter_src}/adapter.wit)
+
+  # A `wasi:cli/run` export for test programs, see the `test-command` world.
+  add_wit_bindgen_library(web_test_command_bindings
+    "${web_adapter_wit}" wasi-libc:web-adapter/test-command ${web_adapter_dir})
+  target_sources(web_test_command_bindings PRIVATE ${web_adapter_src}/run.c)
+  add_dependencies(web_test_command_bindings sysroot)
+
+  # Note that the library itself here is unused, only the generated sources are
+  # used when building the adapter below.
+  add_wit_bindgen_library(web_adapter_bindings
+    "${web_adapter_wit}" wasi-libc:web-adapter/adapter ${web_adapter_dir}
+    FLAGS
+      --rename wasm:js/global=global
+      --rename wasm:js/console=console)
+
+  # The adapter is a `wasm32-wasip2` program, not linked against the webp2 libc
+  # under test, so it's built against a sysroot and compiler-rt downloaded from
+  # wasi-sdk. This way the compiler doesn't need to have its own wasip2 sysroot.
+  set(web_adapter_wasi_sdk_version 34)
+  set(web_adapter_wasi_sdk_url
+    "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${web_adapter_wasi_sdk_version}")
+  ExternalProject_Add(
+    web-adapter-sysroot
+    EXCLUDE_FROM_ALL ON
+    URL "${web_adapter_wasi_sdk_url}/wasi-sysroot-${web_adapter_wasi_sdk_version}.0.tar.gz"
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+  )
+  ExternalProject_Get_Property(web-adapter-sysroot SOURCE_DIR)
+  set(web_adapter_sysroot ${SOURCE_DIR})
+  ExternalProject_Add(
+    web-adapter-builtins
+    EXCLUDE_FROM_ALL ON
+    URL "${web_adapter_wasi_sdk_url}/libclang_rt-${web_adapter_wasi_sdk_version}.0.tar.gz"
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+  )
+  ExternalProject_Get_Property(web-adapter-builtins SOURCE_DIR)
+  set(web_adapter_builtins_src ${SOURCE_DIR}/wasm32-unknown-wasip2/libclang_rt.builtins.a)
+
+  # Place compiler-rt wherever the compiler expects to find it for wasip2
+  # within a custom resource dir, the same as `cmake/builtins.cmake` does.
+  execute_process(
+    COMMAND ${CMAKE_C_COMPILER} --target=wasm32-wasip2 --print-libgcc-file-name
+    OUTPUT_VARIABLE web_adapter_system_builtins
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  cmake_path(
+    RELATIVE_PATH web_adapter_system_builtins
+    BASE_DIRECTORY ${system_resource_dir}
+    OUTPUT_VARIABLE web_adapter_builtins_rel
+  )
+  set(web_adapter_resource_dir ${web_adapter_dir}/resource-dir)
+  set(web_adapter_builtins ${web_adapter_resource_dir}/${web_adapter_builtins_rel})
+  add_custom_command(
+    OUTPUT ${web_adapter_builtins}
+    COMMAND ${CMAKE_COMMAND} -E copy ${web_adapter_builtins_src} ${web_adapter_builtins}
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${system_resource_dir}/include ${web_adapter_resource_dir}/include
+    DEPENDS web-adapter-builtins
+  )
+
+  set(web_adapter_link_flags)
+  set(web_adapter_link_deps)
+  if (WASM_COMPONENT_LD_EXECUTABLE)
+    list(APPEND web_adapter_link_flags -fuse-ld=${WASM_COMPONENT_LD_EXECUTABLE})
+    if (TARGET wasm-component-ld)
+      list(APPEND web_adapter_link_deps wasm-component-ld)
+    endif()
+  endif()
+
+  # The adapter itself. The compiler is invoked directly to avoid all the flags
+  # configured above for tests.
+  set(WEB_ADAPTER ${web_adapter_dir}/web-adapter.wasm)
+  add_custom_command(
+    OUTPUT ${WEB_ADAPTER}
+    COMMAND
+      ${CMAKE_C_COMPILER} --target=wasm32-wasip2 -mexec-model=reactor
+        --sysroot=${web_adapter_sysroot}
+        -resource-dir ${web_adapter_resource_dir}
+        ${web_adapter_link_flags}
+        -Wall -Wextra -Werror -g -I${web_adapter_dir}
+        ${web_adapter_src}/adapter.c
+        ${web_adapter_dir}/adapter.c
+        ${web_adapter_dir}/adapter_component_type.o
+        -o ${WEB_ADAPTER}
+    DEPENDS
+      ${web_adapter_src}/adapter.c
+      ${web_adapter_dir}/adapter.c
+      ${web_adapter_dir}/adapter.h
+      ${web_adapter_dir}/adapter_component_type.o
+      ${web_adapter_builtins}
+      web-adapter-sysroot
+      ${web_adapter_link_deps}
+  )
+  add_custom_target(web-adapter DEPENDS ${WEB_ADAPTER})
+endif()
+
 # ========= libc-test defined tests =============================
 
 add_libc_test(functional/argv.c CFLAGS -Wno-sign-compare)
@@ -464,9 +639,12 @@ if (NOT TARGET_TRIPLE MATCHES "-threads")
 endif()
 add_wasilibc_test(append.c FS)
 add_wasilibc_test(argv_two_args.c ARGV foo bar)
-add_wasilibc_test(clock_nanosleep.c)
+if (NOT WEB)
+  add_wasilibc_test(clock_nanosleep.c)
+endif()
 add_wasilibc_test(chdir.c FS)
 add_wasilibc_test(close.c FS)
+add_wasilibc_test(ctors_run_once.c)
 add_wasilibc_test(pread.c FS)
 add_wasilibc_test(mmap-pread-fail.c FS
   CFLAGS -D_WASI_EMULATED_MMAN
@@ -534,9 +712,11 @@ add_wasilibc_test(time.c)
 add_wasilibc_test(utime.c FS)
 add_wasilibc_test(rewinddir.c FS)
 add_wasilibc_test(seekdir.c FS)
-add_wasilibc_test(usleep.c)
-add_wasilibc_test(nanosleep.c)
-add_wasilibc_test(sleep.c)
+if (NOT WEB)
+  add_wasilibc_test(usleep.c)
+  add_wasilibc_test(nanosleep.c)
+  add_wasilibc_test(sleep.c)
+endif()
 add_wasilibc_test(write.c FS)
 add_wasilibc_test(wasi-defines.c)
 add_wasilibc_test(dup-file.c FS)
@@ -544,13 +724,27 @@ add_wasilibc_test(dup2-file.c FS)
 add_wasilibc_test(dup3-file.c FS)
 add_wasilibc_test(fcntl-dupfd.c FS)
 add_wasilibc_test(clear_fds.c FS)
-add_wasilibc_test(pipe.c)
-add_wasilibc_test(pipe_poll.c)
-add_wasilibc_test(pipe_fstat.c)
-add_wasilibc_test(pipe_setfl_independent.c)
-add_wasilibc_test(pipe_atomic_write.c)
-add_wasilibc_test(pipe_zero_len.c)
-add_wasilibc_test(stream-error.c FS)
+if (NOT (WASI STREQUAL "p1"))
+  add_wasilibc_test(poll-badfd.c)
+  add_wasilibc_test(stdio-dup.c)
+  add_wasilibc_test(stdio-dup-shared-buffer.c PASS_REGULAR_EXPRESSION "abcd\n")
+  add_wasilibc_test(stdio-dup-close.c PASS_REGULAR_EXPRESSION "hello")
+  add_wasilibc_test(stdio-dup-exit.c PASS_REGULAR_EXPRESSION "before-exit")
+  add_wasilibc_test(stdio-dup-abort.c PASS_REGULAR_EXPRESSION "before-abort")
+endif()
+if (WEB)
+  # Relies on webp2's line buffering
+  add_wasilibc_test(stdio-dup2-fflush.c PASS_REGULAR_EXPRESSION "firstline\nsecondline\n")
+endif()
+if (NOT WEB)
+  add_wasilibc_test(pipe.c)
+  add_wasilibc_test(pipe_poll.c)
+  add_wasilibc_test(pipe_fstat.c)
+  add_wasilibc_test(pipe_setfl_independent.c)
+  add_wasilibc_test(pipe_atomic_write.c)
+  add_wasilibc_test(pipe_zero_len.c)
+  add_wasilibc_test(stream-error.c FS)
+endif()
 if (NOT TEST_WITH_V8)
   add_wasilibc_test(pipe_espipe.c NETWORK)
   add_wasilibc_test(task_tls_basic.c)
@@ -691,23 +885,6 @@ endif()
 
 # ========= wasi-libc tests for non-main entrypoints =========================
 
-function(add_wit_bindgen_library name wit world out_dir)
-  add_custom_command(
-    OUTPUT
-      ${out_dir}/${world}.c
-      ${out_dir}/${world}.h
-      ${out_dir}/${world}_component_type.o
-    COMMAND
-      ${wit_bindgen} c ${wit} --world ${world} --out-dir ${out_dir}
-    DEPENDS wit-bindgen ${wit}
-  )
-  add_library(${name} STATIC EXCLUDE_FROM_ALL
-    ${out_dir}/${world}.c
-    ${out_dir}/${world}_component_type.o)
-  target_include_directories(${name} PUBLIC ${out_dir})
-  target_compile_options(${name} PRIVATE -fPIC)
-endfunction()
-
 add_wit_bindgen_library(
   entrypoint_bindings
   ${CMAKE_CURRENT_SOURCE_DIR}/entrypoint.wit
@@ -730,7 +907,7 @@ function(add_external_entrypoint_test test_file)
     )
   endif()
 
-  if (NOT TEST_WITH_V8)
+  if (NOT TEST_WITH_V8 AND NOT WEB)
     add_test_pair(${test_name} ${test_file} ${ARGN} ${extra_args})
   endif()
 endfunction()
@@ -739,9 +916,8 @@ add_external_entrypoint_test(external_entrypoint_pthread_tls.c)
 
 # ========= sockets-related tests ===============================
 
-if (NOT (WASI STREQUAL "p1"))
+if (NOT (WASI STREQUAL "p1") AND NOT WEB)
   add_wasilibc_test(poll-connect.c NETWORK)
-  add_wasilibc_test(poll-badfd.c)
   add_wasilibc_test(poll-nonblocking-socket.c NETWORK)
   add_wasilibc_test(setsockopt.c NETWORK)
   add_wasilibc_test(sockets-ipv6-v6only.c NETWORK)

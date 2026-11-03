@@ -31,6 +31,10 @@ if (NOT (WASI STREQUAL "p3"))
   list(REMOVE_ITEM globbed_headers headers/public/wasi/__generated_wasip3.h)
 endif()
 
+if (NOT (WEB STREQUAL "p2"))
+  list(REMOVE_ITEM globbed_headers headers/public/wasi/__generated_webp2.h)
+endif()
+
 foreach(header ${globbed_headers})
   string(REPLACE "headers/public/" "" dst ${header})
   add_sysroot_header(${header} ${dst})
@@ -50,6 +54,7 @@ endforeach()
 # =============================================================================
 # building bottom-half sources
 #
+
 set(bottom_half_sources
   cloudlibc/src/libc/dirent/closedir.c
   cloudlibc/src/libc/dirent/dirfd.c
@@ -113,6 +118,7 @@ set(bottom_half_sources
   sources/__wasilibc_initialize_environ.c
   sources/__wasilibc_random.c
   sources/__wasilibc_real.c
+  sources/__wasilibc_report_error.c
   sources/__wasilibc_rmdirat.c
   sources/__wasilibc_tell.c
   sources/__wasilibc_unlinkat.c
@@ -135,6 +141,7 @@ set(bottom_half_sources
   sources/reallocarray.c
   sources/sbrk.c
   sources/truncate.c
+  sources/utf8.c
   sources/__cabi_realloc_wrapper.S
 )
 
@@ -152,22 +159,28 @@ else()
     sources/bind.c
     sources/connect.c
     sources/descriptor_table.c
+    sources/file_utils.c
     sources/getsockpeername.c
     sources/listen.c
-    sources/file_utils.c
-    sources/file.c
     sources/recv.c
     sources/send.c
     sources/shutdown.c
     sources/socket.c
-    sources/sockets_utils.c
     sources/sockopt.c
-    sources/tcp.c
-    sources/udp.c
-    sources/netdb.c
   )
 endif()
 
+if (WASI STREQUAL "p2" OR WASI STREQUAL "p3")
+  list(APPEND bottom_half_sources
+    sources/file.c
+    sources/netdb.c
+    sources/sockets_utils.c
+    sources/tcp.c
+    sources/udp.c
+  )
+endif()
+
+# wasip2-specific
 if(WASI STREQUAL "p2")
   list(APPEND bottom_half_sources
     sources/wasip2.c
@@ -175,11 +188,20 @@ if(WASI STREQUAL "p2")
   )
 endif()
 
+# wasip3-specific
 if (WASI STREQUAL "p3")
   list(APPEND bottom_half_sources
     sources/wasip3.c
     sources/wasip3_block_on.c
     sources/wasip3_stdio.c
+  )
+endif()
+
+# webp2-specific
+if (WEB STREQUAL "p2")
+  list(APPEND bottom_half_sources
+    sources/webp2.c
+    sources/webp2_stdio.c
   )
 endif()
 
@@ -196,6 +218,8 @@ endif()
 set_source_files_properties(sources/wasip2.c PROPERTIES
   COMPILE_OPTIONS -fvisibility=hidden)
 set_source_files_properties(sources/wasip3.c PROPERTIES
+  COMPILE_OPTIONS -fvisibility=hidden)
+set_source_files_properties(sources/webp2.c PROPERTIES
   COMPILE_OPTIONS -fvisibility=hidden)
 
 add_object_library(bottom-half ${bottom_half_sources})
@@ -216,8 +240,10 @@ endforeach()
 # Clang will link by default based on compiler flags. These are compiled into
 # "object libraries" with CMake and then they're copied into the final location
 # with adjustments based on WASI versions.
-foreach(file crt/crt1-command.c
-             crt/crt1-reactor.c)
+
+set(crt_sources crt/crt1-reactor.c crt/crt1-command.c)
+
+foreach(file ${crt_sources})
   cmake_path(GET file STEM stem)
   add_library(${stem} OBJECT ${file})
   clang_format_target(${stem})
@@ -236,8 +262,8 @@ add_custom_command(
   DEPENDS crt1-reactor $<TARGET_OBJECTS:crt1-reactor>
 )
 
-if (WASI STREQUAL "p1")
-  # wasip1: crt1-command.o is a straight copy of what CMake produces
+if (WASI STREQUAL "p1" OR WEB STREQUAL "p2")
+  # crt1-command.o is a straight copy of what CMake produces
   add_custom_command(
     OUTPUT ${crt_sysroot}/crt1-command.o
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_OBJECTS:crt1-command> ${crt_sysroot}/crt1-command.o
@@ -290,10 +316,10 @@ add_custom_command(
   DEPENDS ${crt_sysroot}/crt1-command.o
 )
 
-add_custom_target(sysroot-startup-objects
-  DEPENDS
-    ${crt_sysroot}/crt1-reactor.o
-    ${crt_sysroot}/crt1-command.o
-    ${crt_sysroot}/crt1.o
+set(startup_objects
+  ${crt_sysroot}/crt1-reactor.o
+  ${crt_sysroot}/crt1-command.o
+  ${crt_sysroot}/crt1.o
 )
+add_custom_target(sysroot-startup-objects DEPENDS ${startup_objects})
 add_dependencies(sysroot sysroot-startup-objects)

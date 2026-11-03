@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -107,6 +108,13 @@ ssize_t pread(int fildes, void *buf, size_t nbyte, off_t offset) {
     filesystem_future_result_void_error_code_drop_readable(io.f1);
   }
   return ret;
+#elif defined(__webp2__)
+  (void)fildes;
+  (void)buf;
+  (void)nbyte;
+  WASILIBC_LOG_UNSUPPORTED("pread");
+  errno = ENOSYS;
+  return -1;
 #else
 # error "Unknown WASI version"
 #endif

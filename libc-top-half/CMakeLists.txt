@@ -155,8 +155,8 @@ list(REMOVE_ITEM globbed_headers
   musl/include/wordexp.h
 )
 
-# Exclude `netdb.h` from all of the p1 targets.
-if(WASI STREQUAL "p1")
+# Exclude `netdb.h` from all of the p1 targets and webp2.
+if(WASI STREQUAL "p1" OR WEB STREQUAL "p2")
   list(REMOVE_ITEM globbed_headers
     musl/include/netdb.h
   )
@@ -442,7 +442,7 @@ list(REMOVE_ITEM globbed_sources
 
 list(APPEND top_half_sources ${globbed_sources})
 
-if (NOT (WASI STREQUAL "p1"))
+if (WASI STREQUAL "p2" OR WASI STREQUAL "p3")
   list(APPEND top_half_sources
     musl/src/network/gai_strerror.c
   )

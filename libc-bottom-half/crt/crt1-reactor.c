@@ -1,6 +1,7 @@
 #if defined(_REENTRANT)
 #include <stdatomic.h>
 #endif
+
 extern void __wasm_call_ctors(void);
 
 #include "wasip3_symbol_references.h"

@@ -27,6 +27,8 @@
 #include <wasi/wasip2.h>
 #elif defined(__wasip3__)
 #include <wasi/wasip3.h>
+#elif defined(__webp2__)
+#include <wasi/webp2.h>
 #else
 #error "Unsupported WASI version"
 #endif

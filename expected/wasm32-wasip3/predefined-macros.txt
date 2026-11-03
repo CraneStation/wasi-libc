@@ -3068,6 +3068,7 @@
 #define __WASI_VERSION_H 
 #define __WASI_WASIP2_H 
 #define __WASI_WASIP3_H 
+#define __WASI_WEBP2_H 
 #define __WCHAR_TYPE__ int
 #define __WCHAR_WIDTH__ 32
 #define __WINT_TYPE__ int

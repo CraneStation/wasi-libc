@@ -2,16 +2,19 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <errno.h>
 #include <sys/stat.h>
 #include <wasi/api.h>
-#include <errno.h>
-#include "stat_impl.h"
+#include <wasi/descriptor_table.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
 #include <wasi/file_utils.h>
 #include <common/errors.h>
 #endif
+
+#include "stat_impl.h"
 
 int futimens(int fd, const struct timespec *times) {
 #if defined(__wasip1__)
@@ -55,6 +58,12 @@ int futimens(int fd, const struct timespec *times) {
     translate_error(&error);
     return -1;
   }
+#elif defined(__webp2__)
+  (void)fd;
+  (void)times;
+  WASILIBC_LOG_UNSUPPORTED("futimens");
+  errno = ENOSYS;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

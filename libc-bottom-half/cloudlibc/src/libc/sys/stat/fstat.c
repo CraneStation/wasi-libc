@@ -2,15 +2,16 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include "stat_impl.h"
 #include <errno.h>
 #include <sys/stat.h>
 #include <wasi/api.h>
 #include <wasi/descriptor_table.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__)
 #include <stddefer.h>
 #endif
+
+#include "stat_impl.h"
 
 int fstat(int fildes, struct stat *buf) {
 #if defined(__wasip1__)
@@ -22,7 +23,7 @@ int fstat(int fildes, struct stat *buf) {
   }
   to_public_stat(&internal_stat, buf);
   return 0;
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
   // Translate the file descriptor to an internal handle
   descriptor_table_entry_t entry;
   if (descriptor_table_get(fildes, &entry) < 0)

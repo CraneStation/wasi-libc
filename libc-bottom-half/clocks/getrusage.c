@@ -15,7 +15,7 @@ int getrusage(int who, struct rusage *r_usage) {
 #if defined(__wasip1__)
     __wasi_timestamp_t usertime = __clock();
     *r_usage = (struct rusage){.ru_utime = timestamp_to_timeval(usertime)};
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
     clock_t usertime = __clock();
     *r_usage = (struct rusage){.ru_utime = instant_to_timeval(usertime)};
 #else

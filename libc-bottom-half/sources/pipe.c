@@ -1,8 +1,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <wasi/report-error.h>
 
-#if !defined(__wasip1__) && !defined(__wasip2__)
+#if defined(__wasip3__)
 
 #include <limits.h>
 #include <stddefer.h>
@@ -491,7 +492,7 @@ static descriptor_vtable_t pipe_vtable = {
     .poll_register = pipe_poll_register,
 };
 
-#endif // !__wasip1__ && !__wasip2__
+#endif // __wasip3__
 
 int pipe(int fd[2]) { return pipe2(fd, 0); }
 
@@ -500,8 +501,9 @@ int pipe2(int fd[2], int flags) {
     errno = EINVAL;
     return -1;
   }
-#if defined(__wasip1__) || defined(__wasip2__)
+#if defined(__wasip1__) || defined(__wasip2__) || defined(__webp2__)
   (void)fd;
+  WASILIBC_LOG_UNSUPPORTED("pipe2");
   errno = ENOTSUP;
   return -1;
 #else

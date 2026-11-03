@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <wasi/api.h>
 #include <errno.h>
 #include <unistd.h>
+#include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -101,6 +102,13 @@ ssize_t pwrite(int fildes, const void *buf, size_t nbyte, off_t offset) {
     return -1;
   }
   return ret;
+#elif defined(__webp2__)
+  (void)fildes;
+  (void)buf;
+  (void)nbyte;
+  WASILIBC_LOG_UNSUPPORTED("pwrite");
+  errno = ENOSYS;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

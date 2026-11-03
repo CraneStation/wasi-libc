@@ -137,6 +137,8 @@ software:
 software:
   list_tuple2_string_string_free(&wasi_environment);
   _Exit(EX_SOFTWARE);
+#elif defined(__webp2__)
+  __wasilibc_environ = empty_environ;
 #else
 #error "Unsupported WASI version"
 #endif

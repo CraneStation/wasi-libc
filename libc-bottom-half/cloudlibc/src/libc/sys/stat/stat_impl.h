@@ -126,6 +126,7 @@ static inline void to_public_stat(const filesystem_metadata_hash_value_t *metada
   }
   filesystem_descriptor_stat_free(in);
 }
+#elif defined(__webp2__)
 #else
 # error "Unsupported WASI version"
 #endif
@@ -209,6 +210,7 @@ static inline bool utimens_get_timestamps(const struct timespec *times,
   }
   return true;
 }
+#elif defined(__webp2__)
 #else
 # error "Unsupported WASI version"
 #endif

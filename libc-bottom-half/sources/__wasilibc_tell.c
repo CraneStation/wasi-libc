@@ -2,7 +2,7 @@
 #include <sys/types.h>
 #include <wasi/api.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__)
 #include <common/errors.h>
 #include <stddefer.h>
 #include <unistd.h>
@@ -20,7 +20,7 @@ off_t __wasilibc_tell(int fildes) {
     return -1;
   }
   return offset;
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
   // Look up a stream for fildes
   descriptor_table_entry_t entry;
   if (descriptor_table_get(fildes, &entry) < 0)

@@ -17,7 +17,7 @@ void arc4random_buf(void* buffer, size_t len)
     // raw-entropy-style implementation.
 #if defined(__wasip1__)
     int r = __wasi_random_get(buffer, len);
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
     int r = __wasilibc_random(buffer, len);
 #else
 # error "Unknown WASI version"

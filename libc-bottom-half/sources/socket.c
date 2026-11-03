@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <wasi/descriptor_table.h>
+#include <wasi/report-error.h>
 #include <wasi/sockets_utils.h>
 #include <wasi/tcp.h>
 #include <wasi/udp.h>
@@ -12,6 +13,7 @@
 #define SOCKETS_IP_ADDRESS_FAMILY_IPV6 NETWORK_IP_ADDRESS_FAMILY_IPV6
 #endif
 
+#ifndef __webp2__
 static int tcp_socket(sockets_ip_address_family_t family, bool blocking) {
   sockets_error_code_t error;
   sockets_own_tcp_socket_t socket;
@@ -29,8 +31,10 @@ static int udp_socket(sockets_ip_address_family_t family, bool blocking) {
 
   return __wasilibc_add_udp_socket(socket, family, blocking);
 }
+#endif // !webp2
 
 int socket(int domain, int type, int protocol) {
+#if defined(__wasip1__) || defined(__wasip2__) || defined(__wasip3__)
   sockets_ip_address_family_t family;
   switch (domain) {
   case PF_INET:
@@ -61,4 +65,14 @@ int socket(int domain, int type, int protocol) {
     errno = EPROTONOSUPPORT;
     return -1;
   }
+#elif defined(__webp2__)
+  (void)domain;
+  (void)type;
+  (void)protocol;
+  WASILIBC_LOG_UNSUPPORTED("socket");
+  errno = ENOSYS;
+  return -1;
+#else
+#error "Unknown WASI version"
+#endif
 }

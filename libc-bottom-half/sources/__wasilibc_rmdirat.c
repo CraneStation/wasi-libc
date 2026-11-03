@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <wasi/api.h>
 #include <wasi/libc.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <common/errors.h>
@@ -37,6 +38,12 @@ int __wasilibc_nocwd___wasilibc_rmdirat(int fd, const char *path) {
     translate_error(&error_code);
     return -1;
   }
+#elif defined(__webp2__)
+  (void)fd;
+  (void)path;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd___wasilibc_rmdirat");
+  errno = ENOENT;
+  return -1;
 #else
 #error "Unsupported WASI version"
 #endif

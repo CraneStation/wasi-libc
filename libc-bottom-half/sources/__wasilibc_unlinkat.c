@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <wasi/api.h>
 #include <wasi/libc.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <common/errors.h>
@@ -40,6 +41,12 @@ int __wasilibc_nocwd___wasilibc_unlinkat(int fd, const char *path) {
   }
 
   return 0;
+#elif defined(__webp2__)
+  (void)fd;
+  (void)path;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd___wasilibc_unlinkat");
+  errno = ENOENT;
+  return -1;
 #else
 #error "Unknown WASI version"
 #endif

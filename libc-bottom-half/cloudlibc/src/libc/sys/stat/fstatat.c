@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -92,6 +93,10 @@ int __wasilibc_nocwd_fstatat(int fd, const char *restrict path, struct stat *res
   // Convert the internal data to an external struct
   to_public_stat(&metadata, &internal_stat, buf);
   return 0;
+#elif defined(__webp2__)
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_fstatat");
+  errno = ENOENT;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

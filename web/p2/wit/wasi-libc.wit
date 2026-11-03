@@ -1,0 +1,10 @@
+package wasi-libc:webp2;
+
+world webp2 {
+    import wasm:js/global;
+
+    // TODO(webp2): If we had nested interfaces we could avoid this external-id
+    // by putting console directly on global.
+    @external-id("wasm:js/global/console")
+    import wasm:js/console;
+}

@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <wasi/api.h>
 #include <dirent.h>
+#include <errno.h>
+#include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #include "dirent_impl.h"
 
@@ -17,6 +19,10 @@ void rewinddir(DIR *dirp) {
   dirent_close_streams(dirp);
   dirp->skip = 0;
   dirp->offset = 0;
+#elif defined(__webp2__)
+  (void)dirp;
+  WASILIBC_LOG_UNSUPPORTED("rewinddir");
+  errno = ENOSYS;
 #else
 # error "Unknown WASI version"
 #endif

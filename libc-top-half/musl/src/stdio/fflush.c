@@ -1,4 +1,5 @@
 #include "stdio_impl.h"
+#include <wasi/webp2_stdio.h>
 
 /* stdout.c will override this if linked */
 static FILE *volatile dummy = 0;
@@ -39,6 +40,10 @@ int fflush(FILE *f)
 	/* Clear read and write modes */
 	f->wpos = f->wbase = f->wend = 0;
 	f->rpos = f->rend = 0;
+
+#ifdef __webp2__
+	__wasilibc_webp2_fflush(f->fd);
+#endif
 
 	FUNLOCK(f);
 	return 0;

@@ -2,18 +2,20 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <sys/stat.h>
-#include <wasi/api.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
-#include "stat_impl.h"
+#include <sys/stat.h>
+#include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
 #include <wasi/file_utils.h>
 #include <common/errors.h>
 #endif
+
+#include "stat_impl.h"
 
 int __wasilibc_nocwd_utimensat(int fd, const char *path, const struct timespec times[2],
                                int flag) {
@@ -77,6 +79,14 @@ int __wasilibc_nocwd_utimensat(int fd, const char *path, const struct timespec t
     translate_error(&error);
     return -1;
   }
+#elif defined(__webp2__)
+  (void)fd;
+  (void)path;
+  (void)times;
+  (void)flag;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_utimensat");
+  errno = ENOENT;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

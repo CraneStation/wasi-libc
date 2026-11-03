@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <wasi/api.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -61,6 +62,15 @@ int __wasilibc_nocwd_linkat(int fd1, const char *path1, int fd2, const char *pat
     translate_error(&error_code);
     return -1;
   }
+#elif defined(__webp2__)
+  (void)fd1;
+  (void)path1;
+  (void)fd2;
+  (void)path2;
+  (void)flag;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_linkat");
+  errno = ENOENT;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

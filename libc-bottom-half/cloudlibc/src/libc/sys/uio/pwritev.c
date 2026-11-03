@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-#include <errno.h>
 #include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <wasi/file_utils.h>
@@ -27,7 +28,7 @@ ssize_t pwritev(int fildes, const struct iovec *iov, int iovcnt, off_t offset) {
     return -1;
   }
   return bytes_written;
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
   // Skip empty iovecs and then delegate to `pwrite` with the first non-empty
   // iovec.
   while (iovcnt) {

@@ -16,7 +16,7 @@
 #define MSG_PEEK __WASI_RIFLAGS_RECV_PEEK
 #define MSG_WAITALL __WASI_RIFLAGS_RECV_WAITALL
 #define MSG_TRUNC __WASI_ROFLAGS_RECV_DATA_TRUNCATED
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
 #define MSG_DONTWAIT 0x0040
 #define MSG_NOSIGNAL 0x4000
 #define MSG_PEEK 0x0002

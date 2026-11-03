@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -56,6 +57,14 @@ ssize_t __wasilibc_nocwd_readlinkat(int fd, const char *restrict path, char *res
 #else
   wasip3_string_free(&link_source);
 #endif
+#elif defined(__webp2__)
+  (void)fd;
+  (void)path;
+  (void)buf;
+  (void)bufsize;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_readlinkat");
+  errno = ENOENT;
+  return -1;
 #else
 # error "Unsupported WASI version"
 #endif

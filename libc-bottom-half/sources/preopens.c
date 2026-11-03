@@ -14,13 +14,15 @@
 #include <wasi/api.h>
 #include <wasi/libc-find-relpath.h>
 #include <wasi/libc.h>
+#include <wasi/report-error.h>
 
-#ifndef __wasip1__
+#if defined(__wasip2__) || defined(__wasip3__)
 #include <wasi/descriptor_table.h>
 #include <wasi/file.h>
 #include <wasi/file_utils.h>
 #endif
 
+#if defined(__wasip1__) || defined(__wasip2__) || defined(__wasip3__)
 /// Access to the the above preopen must be protected in the presence of
 /// threads.
 DECLARE_STRONG_LOCK(lock, static);
@@ -422,3 +424,14 @@ void __wasilibc_reset_preopens(void) {
 
   STRONG_UNLOCK(lock);
 }
+#elif defined(__webp2__)
+void __wasilibc_populate_preopens(void) {
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_populate_preopens");
+}
+
+void __wasilibc_reset_preopens(void) {
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_reset_preopens");
+}
+#else
+#error "Unknown WASI version"
+#endif

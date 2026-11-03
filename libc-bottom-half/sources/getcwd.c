@@ -1,13 +1,17 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <wasi/report-error.h>
 
 #include "lock.h"
 
+#ifndef __webp2__
 char *__wasilibc_cwd = "/";
 DECLARE_WEAK_LOCK(__wasilibc_cwd_lock);
+#endif
 
 char *getcwd(char *buf, size_t size) {
+#if defined(__wasip1__) || defined(__wasip2__) || defined(__wasip3__)
   // Critical section contains no yield points, so we can use weak locks.
   WEAK_LOCK(__wasilibc_cwd_lock);
   if (!buf) {
@@ -28,4 +32,13 @@ char *getcwd(char *buf, size_t size) {
   }
   WEAK_UNLOCK(__wasilibc_cwd_lock);
   return buf;
+#elif defined(__webp2__)
+  (void)buf;
+  (void)size;
+  WASILIBC_LOG_UNSUPPORTED("getcwd");
+  errno = ENOENT;
+  return NULL;
+#else
+#error "Unknown WASI version"
+#endif
 }

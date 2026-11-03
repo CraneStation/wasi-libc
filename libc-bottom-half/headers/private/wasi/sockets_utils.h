@@ -5,7 +5,7 @@
 #include <wasi/api.h>
 #include <wasi/descriptor_table.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__) && !defined(__webp2__)
 
 #if defined(__wasip2__)
 typedef network_error_code_t sockets_error_code_t;
@@ -104,6 +104,6 @@ const service_entry_t *__wasilibc_get_service_entry_by_name(const char *name);
 const service_entry_t *
 __wasilibc_get_service_entry_by_port(const uint16_t port);
 
-#endif // not(__wasip1__)
+#endif // !__wasip1__ && !__webp2__
 
 #endif // __wasi_sockets_utils_h

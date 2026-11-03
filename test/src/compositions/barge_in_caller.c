@@ -17,7 +17,7 @@ int main() {
   // For wasip2 this `main` function is a synchronous entrypoint so we can't
   // cancel the task which would block, but for wasip3 and beyond it's ok to
   // block so it's ok to cancel.
-#ifdef __wasip2__
+#if defined(__wasip2__) || defined(__webp2__)
   (void)subtask;
 #else
   status = caller_subtask_cancel(subtask);

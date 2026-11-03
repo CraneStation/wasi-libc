@@ -3061,6 +3061,7 @@
 #define __WASI_VERSION_H 
 #define __WASI_WASIP2_H 
 #define __WASI_WASIP3_H 
+#define __WASI_WEBP2_H 
 #define __WASI_WHENCE_CUR (UINT8_C(1))
 #define __WASI_WHENCE_END (UINT8_C(2))
 #define __WASI_WHENCE_SET (UINT8_C(0))

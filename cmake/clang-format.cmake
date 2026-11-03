@@ -21,7 +21,7 @@ set(formatted_sources)
 
 function(clang_format_file file)
   if (file MATCHES "__generated" OR
-      file MATCHES "wasip.\.c$" OR # Skip auto-generated files
+      file MATCHES "(wasip.|webp2)\.c$" OR # Skip auto-generated files
       file MATCHES "\.(s|S)$")     # Skip assembly files
     return()
   endif()

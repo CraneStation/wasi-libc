@@ -9,12 +9,16 @@
 #include <unistd.h>
 #include <wasi/libc-find-relpath.h>
 #include <wasi/libc.h>
+#include <wasi/report-error.h>
 
+#ifndef __webp2__
 DECLARE_WEAK_LOCK(__wasilibc_cwd_lock, extern);
 extern char *__wasilibc_cwd;
 static int __wasilibc_cwd_mallocd = 0;
+#endif
 
 int chdir(const char *path) {
+#if defined(__wasip1__) || defined(__wasip2__) || defined(__wasip3__)
   static char *relative_buf = NULL;
   static size_t relative_buf_len = 0;
 
@@ -68,8 +72,17 @@ int chdir(const char *path) {
     free(prev_cwd);
   __wasilibc_cwd_mallocd = 1;
   return 0;
+#elif defined(__webp2__)
+  (void)path;
+  WASILIBC_LOG_UNSUPPORTED("chdir");
+  errno = ENOENT;
+  return -1;
+#else
+#error "Unknown WASI version"
+#endif
 }
 
+#ifndef __webp2__
 // Computes an absolute path for `path` based on the current working directory.
 //
 // The caller must already hold `__wasilibc_cwd_lock`: this function reads the
@@ -171,3 +184,4 @@ int __wasilibc_find_relpath_alloc(const char *path, const char **abs_prefix,
   WEAK_UNLOCK(__wasilibc_cwd_lock);
   return fd;
 }
+#endif // !webp2

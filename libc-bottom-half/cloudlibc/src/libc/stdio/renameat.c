@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: BSD-2-Clause
 
-#include <wasi/api.h>
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <wasi/api.h>
+#include <wasi/report-error.h>
 
 #ifndef __wasip1__
 #include <stddefer.h>
@@ -52,6 +53,14 @@ int __wasilibc_nocwd_renameat(int oldfd, const char *old, int newfd, const char 
     translate_error(&error_code);
     return -1;
   }
+#elif defined(__webp2__)
+  (void)oldfd;
+  (void)old;
+  (void)newfd;
+  (void)new;
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_nocwd_renameat");
+  errno = ENOENT;
+  return -1;
 #else
 # error "Unknown WASI version"
 #endif

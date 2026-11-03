@@ -12,7 +12,9 @@
 #include <wasi/libc-find-relpath.h>
 #include <wasi/libc-nocwd.h>
 #include <wasi/libc.h>
+#include <wasi/report-error.h>
 
+#if defined(__wasip1__) || defined(__wasip2__) || defined(__wasip3__)
 static int find_relpath2(const char *path, char **relative,
                          size_t *relative_len) {
   // See comments in `preopens.c` for what this trick is doing.
@@ -44,6 +46,21 @@ static int find_relpath_alt(const char *path, char **relative) {
   *relative = relative_buf;
   return fd;
 }
+#elif defined(__webp2__)
+// For webp2 we always return -1, which will always take these functions down
+// the "no preopen" path, which means in just about every case we know we can
+// just log that this function is unsupported.
+static int find_relpath(const char *path, char **relative) {
+  (void)path;
+  (void)relative;
+  return -1;
+}
+static int find_relpath_alt(const char *path, char **relative) {
+  (void)path;
+  (void)relative;
+  return -1;
+}
+#endif
 
 int open(const char *path, int oflag, ...) {
   // WASI libc's `openat` ignores the mode argument, so call a special
@@ -53,6 +70,10 @@ int open(const char *path, int oflag, ...) {
 
 // See the documentation in libc.h
 int __wasilibc_open_nomode(const char *path, int oflag) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_open_nomode");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -66,6 +87,10 @@ int __wasilibc_open_nomode(const char *path, int oflag) {
 }
 
 int access(const char *path, int amode) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("access");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -80,6 +105,10 @@ int access(const char *path, int amode) {
 
 ssize_t readlink(const char *restrict path, char *restrict buf,
                  size_t bufsize) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("readlink");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -93,6 +122,10 @@ ssize_t readlink(const char *restrict path, char *restrict buf,
 }
 
 int stat(const char *restrict path, struct stat *restrict buf) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("stat");
+#endif
+
   if (path[0] == '\0') {
     errno = ENOENT;
     return -1;
@@ -111,6 +144,10 @@ int stat(const char *restrict path, struct stat *restrict buf) {
 }
 
 int lstat(const char *restrict path, struct stat *restrict buf) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("lstat");
+#endif
+
   if (path[0] == '\0') {
     errno = ENOENT;
     return -1;
@@ -130,6 +167,10 @@ int lstat(const char *restrict path, struct stat *restrict buf) {
 }
 
 int utime(const char *path, const struct utimbuf *times) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("utime");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -148,6 +189,10 @@ int utime(const char *path, const struct utimbuf *times) {
 }
 
 int utimes(const char *path, const struct timeval times[2]) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("utimes");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -169,6 +214,10 @@ int utimes(const char *path, const struct timeval times[2]) {
 }
 
 int unlink(const char *path) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("unlink");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -185,6 +234,10 @@ int unlink(const char *path) {
 }
 
 int rmdir(const char *path) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("rmdir");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -198,6 +251,10 @@ int rmdir(const char *path) {
 }
 
 int remove(const char *path) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("remove");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -222,6 +279,10 @@ int remove(const char *path) {
 }
 
 int mkdir(const char *path, mode_t mode) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("mkdir");
+#endif
+
   (void)mode;
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
@@ -236,6 +297,10 @@ int mkdir(const char *path, mode_t mode) {
 }
 
 DIR *opendir(const char *dirname) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("opendir");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(dirname, &relative_path);
 
@@ -251,6 +316,10 @@ DIR *opendir(const char *dirname) {
 int scandir(const char *restrict dir, struct dirent ***restrict namelist,
             int (*filter)(const struct dirent *),
             int (*compar)(const struct dirent **, const struct dirent **)) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("scandir");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(dir, &relative_path);
 
@@ -265,6 +334,10 @@ int scandir(const char *restrict dir, struct dirent ***restrict namelist,
 }
 
 int symlink(const char *target, const char *linkpath) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("symlink");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(linkpath, &relative_path);
 
@@ -278,6 +351,10 @@ int symlink(const char *target, const char *linkpath) {
 }
 
 int link(const char *old, const char *new) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("link");
+#endif
+
   char *old_relative_path;
   int old_dirfd = find_relpath_alt(old, &old_relative_path);
 
@@ -296,6 +373,10 @@ int link(const char *old, const char *new) {
 }
 
 int rename(const char *old, const char *new) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("rename");
+#endif
+
   char *old_relative_path;
   int old_dirfd = find_relpath_alt(old, &old_relative_path);
 
@@ -319,6 +400,7 @@ int chmod(const char *path, mode_t mode) {
   // TODO: We plan to support this eventually in WASI, but not yet.
   // Meanwhile, we provide a stub so that libc++'s `<filesystem>`
   // implementation will build unmodified.
+  WASILIBC_LOG_UNSUPPORTED("chmod");
   errno = ENOSYS;
   return -1;
 }
@@ -329,6 +411,7 @@ int fchmod(int fd, mode_t mode) {
   // TODO: We plan to support this eventually in WASI, but not yet.
   // Meanwhile, we provide a stub so that libc++'s `<filesystem>`
   // implementation will build unmodified.
+  WASILIBC_LOG_UNSUPPORTED("fchmod");
   errno = ENOSYS;
   return -1;
 }
@@ -341,6 +424,7 @@ int fchmodat(int fd, const char *path, mode_t mode, int flag) {
   // TODO: We plan to support this eventually in WASI, but not yet.
   // Meanwhile, we provide a stub so that libc++'s `<filesystem>`
   // implementation will build unmodified.
+  WASILIBC_LOG_UNSUPPORTED("fchmodat");
   errno = ENOSYS;
   return -1;
 }
@@ -351,6 +435,7 @@ int statvfs(const char *__restrict path, struct statvfs *__restrict buf) {
   // TODO: We plan to support this eventually in WASI, but not yet.
   // Meanwhile, we provide a stub so that libc++'s `<filesystem>`
   // implementation will build unmodified.
+  WASILIBC_LOG_UNSUPPORTED("statvfs");
   errno = ENOSYS;
   return -1;
 }
@@ -361,12 +446,17 @@ int fstatvfs(int fd, struct statvfs *buf) {
   // TODO: We plan to support this eventually in WASI, but not yet.
   // Meanwhile, we provide a stub so that libc++'s `<filesystem>`
   // implementation will build unmodified.
+  WASILIBC_LOG_UNSUPPORTED("fstatvfs");
   errno = ENOSYS;
   return -1;
 }
 
 // Like `access`, but with `faccessat`'s flags argument.
 int __wasilibc_access(const char *path, int mode, int flags) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_access");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -382,6 +472,10 @@ int __wasilibc_access(const char *path, int mode, int flags) {
 // Like `utimensat`, but without the `at` part.
 int __wasilibc_utimens(const char *path, const struct timespec times[2],
                        int flags) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__waslibc_utimens");
+#endif
+
   char *relative_path;
   int dirfd = find_relpath(path, &relative_path);
 
@@ -397,6 +491,10 @@ int __wasilibc_utimens(const char *path, const struct timespec times[2],
 // Like `stat`, but with `fstatat`'s flags argument.
 int __wasilibc_stat(const char *__restrict path, struct stat *__restrict st,
                     int flags) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_stat");
+#endif
+
   if (path[0] == '\0') {
     errno = ENOENT;
     return -1;
@@ -416,6 +514,10 @@ int __wasilibc_stat(const char *__restrict path, struct stat *__restrict st,
 
 // Like `link`, but with `linkat`'s flags argument.
 int __wasilibc_link(const char *oldpath, const char *newpath, int flags) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_link");
+#endif
+
   char *old_relative_path;
   char *new_relative_path;
   int old_dirfd = find_relpath(oldpath, &old_relative_path);
@@ -434,6 +536,10 @@ int __wasilibc_link(const char *oldpath, const char *newpath, int flags) {
 // Like `__wasilibc_link`, but oldpath is relative to olddirfd.
 int __wasilibc_link_oldat(int olddirfd, const char *oldpath,
                           const char *newpath, int flags) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_link_oldat");
+#endif
+
   char *new_relative_path;
   int new_dirfd = find_relpath(newpath, &new_relative_path);
 
@@ -450,6 +556,10 @@ int __wasilibc_link_oldat(int olddirfd, const char *oldpath,
 // Like `__wasilibc_link`, but newpath is relative to newdirfd.
 int __wasilibc_link_newat(const char *oldpath, int newdirfd,
                           const char *newpath, int flags) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_link_newat");
+#endif
+
   char *old_relative_path;
   int old_dirfd = find_relpath(oldpath, &old_relative_path);
 
@@ -465,6 +575,10 @@ int __wasilibc_link_newat(const char *oldpath, int newdirfd,
 
 // Like `rename`, but from is relative to fromdirfd.
 int __wasilibc_rename_oldat(int fromdirfd, const char *from, const char *to) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_rename_oldat");
+#endif
+
   char *to_relative_path;
   int to_dirfd = find_relpath(to, &to_relative_path);
 
@@ -479,6 +593,10 @@ int __wasilibc_rename_oldat(int fromdirfd, const char *from, const char *to) {
 
 // Like `rename`, but to is relative to todirfd.
 int __wasilibc_rename_newat(const char *from, int todirfd, const char *to) {
+#ifdef __webp2__
+  WASILIBC_LOG_UNSUPPORTED("__wasilibc_rename_newat");
+#endif
+
   char *from_relative_path;
   int from_dirfd = find_relpath(from, &from_relative_path);
 

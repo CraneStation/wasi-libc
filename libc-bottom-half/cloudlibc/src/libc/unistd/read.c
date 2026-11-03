@@ -6,7 +6,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__)
 #include <stddefer.h>
 #include <wasi/descriptor_table.h>
 #include <wasi/file_utils.h>
@@ -30,6 +30,7 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
   if (descriptor_table_get(fildes, &entry) < 0)
     return -1;
   defer descriptor_table_entry_dec(entry);
+#if defined(__wasip2__) || defined(__wasip3__)
   if (entry.vtable->get_read_stream) {
     wasi_read_t read;
     if (entry.vtable->get_read_stream(entry.data, &read) < 0)
@@ -37,6 +38,13 @@ ssize_t read(int fildes, void *buf, size_t nbyte) {
     defer STRONG_UNLOCK(*read.state->lock);
     return __wasilibc_read(&read, buf, nbyte);
   }
+#elif defined(__webp2__)
+  if (entry.vtable->read) {
+    return entry.vtable->read(entry.data, buf, nbyte);
+  }
+#else
+#error "Unknown WASI version"
+#endif
   if (entry.vtable->recvfrom)
     return entry.vtable->recvfrom(entry.data, buf, nbyte, 0, NULL, NULL);
   errno = EOPNOTSUPP;

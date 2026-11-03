@@ -1,15 +1,16 @@
 #ifndef __WASI_VERSION_H
 #define __WASI_VERSION_H
 
-#ifndef __wasi__
-#error <wasi/version.h> is only supported on WASI platforms.
-#endif
-
 // After llvm/llvm-project#165345 these can be conditionally defined by a clang
 // version test here to use the upstream definitions.
 #cmakedefine __wasip1__
 #cmakedefine __wasip2__
 #cmakedefine __wasip3__
+#cmakedefine __webp2__
+
+#if !defined(__wasi__) && !defined(__webp2__)
+#error <wasi/version.h> is only supported on WASI platforms.
+#endif
 
 // The `__wasi_cooperative_threads__` define is used to test whether cooperative
 // threads are enabled for this build of wasi-libc. This is detected at

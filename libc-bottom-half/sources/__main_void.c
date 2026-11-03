@@ -116,6 +116,13 @@ __attribute__((__weak__, nodebug)) int __main_void(void) {
 
   // Call `__main_argc_argv` with the arguments!
   return __main_argc_argv(argc, argv);
+#elif defined(__webp2__)
+  // See comments in crt1-reactor.c.
+  if (!__main_argc_argv) {
+    return 0;
+  }
+  static char *argv[] = {"./this.program", NULL};
+  return __main_argc_argv(1, argv);
 #else
 #error "Unknown WASI version"
 #endif

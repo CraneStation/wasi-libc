@@ -7,14 +7,15 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__)
 #include <stddefer.h>
+#include <wasi/descriptor_table.h>
 #include <wasi/file_utils.h>
 #include <common/errors.h>
 #endif
 
 int fcntl(int fildes, int cmd, ...) {
-#if defined(__wasip2__) || defined(__wasip3__)
+#if defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
   descriptor_table_entry_t entry;
   if (descriptor_table_get(fildes, &entry) < 0)
     return -1;
@@ -53,7 +54,7 @@ int fcntl(int fildes, int cmd, ...) {
         oflags |= O_SEARCH;
       }
       return oflags;
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
       if (!entry.vtable->fcntl_getfl) {
         errno = EINVAL;
         return -1;
@@ -78,7 +79,7 @@ int fcntl(int fildes, int cmd, ...) {
         errno = error;
         return -1;
       }
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
       if (!entry.vtable->fcntl_setfl) {
         errno = EINVAL;
         return -1;
@@ -89,7 +90,7 @@ int fcntl(int fildes, int cmd, ...) {
 #endif
       return 0;
     }
-#ifndef __wasip1__
+#if !defined(__wasip1__)
     case F_DUPFD:
     case F_DUPFD_CLOEXEC: {
       va_list ap;

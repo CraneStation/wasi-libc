@@ -3,7 +3,7 @@
 
 #include <wasi/version.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__) && !defined(__webp2__)
 
 #include <wasi/sockets_utils.h>
 
@@ -21,6 +21,6 @@ int __wasilibc_add_udp_socket(sockets_own_udp_socket_t socket,
                               sockets_ip_address_family_t family,
                               bool blocking);
 
-#endif // not(__wasip1__)
+#endif // !__wasip1__ && !__webp2__
 
 #endif // WASI_UDP_H

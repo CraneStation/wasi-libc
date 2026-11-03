@@ -7,6 +7,7 @@
 // function, which then calls the appropriate WASI function.
 
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -14,6 +15,7 @@
 #include <unistd.h>
 #include <wasi/libc-nocwd.h>
 #include <wasi/libc.h>
+#include <wasi/report-error.h>
 
 // If the platform doesn't define O_TMPFILE, we don't need to worry about it.
 #ifndef O_TMPFILE

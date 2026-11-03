@@ -4,7 +4,7 @@
 #include <wasi/api.h>
 #include <wasi/descriptor_table.h>
 
-#ifndef __wasip1__
+#if !defined(__wasip1__)
 #include <common/errors.h>
 #include <stddefer.h>
 #include <wasi/file_utils.h>
@@ -28,7 +28,7 @@ int __isatty(int fd) {
   }
 
   return 1;
-#elif defined(__wasip2__) || defined(__wasip3__)
+#elif defined(__wasip2__) || defined(__wasip3__) || defined(__webp2__)
   // Translate the file descriptor into an internal handle
   descriptor_table_entry_t entry;
   if (descriptor_table_get(fd, &entry) < 0)

@@ -10,5 +10,7 @@ expected linguist-generated
 # Flag some wit-bindgen-generated files checked into the repo as generated
 __generated_wasip2.h linguist-generated
 __generated_wasip3.h linguist-generated
+__generated_webp2.h linguist-generated
 libc-bottom-half/sources/wasip2.c linguist-generated
 libc-bottom-half/sources/wasip3.c linguist-generated
+libc-bottom-half/sources/webp2.c linguist-generated

@@ -2,6 +2,7 @@
 #define __wasi_file_utils_h
 
 #include <wasi/version.h>
+
 #if defined(__wasip2__) || defined(__wasip3__)
 
 #include <assert.h>

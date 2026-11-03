@@ -15,8 +15,8 @@ if(WIT_BINDGEN_EXECUTABLE)
     OUTPUT_VARIABLE WIT_BINDGEN_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-  if (NOT (WIT_BINDGEN_VERSION MATCHES "0\\.60\\.0"))
-    message(WARNING "wit-bindgen version 0.60.0 is required, found: ${WIT_BINDGEN_VERSION}")
+  if (NOT (WIT_BINDGEN_VERSION MATCHES "0\\.63\\.0"))
+    message(WARNING "wit-bindgen version 0.63.0 is required, found: ${WIT_BINDGEN_VERSION}")
     set(WIT_BINDGEN_EXECUTABLE "")
   endif()
 endif()
@@ -26,7 +26,7 @@ if (NOT WIT_BINDGEN_EXECUTABLE)
   ba_download(
     wit-bindgen
     "https://github.com/bytecodealliance/wit-bindgen"
-    "0.60.0"
+    "0.63.0"
   )
   ExternalProject_Get_Property(wit-bindgen SOURCE_DIR)
   set(wit_bindgen "${SOURCE_DIR}/wit-bindgen")
@@ -38,7 +38,7 @@ endif()
 set(bottom_half "${CMAKE_SOURCE_DIR}/libc-bottom-half")
 
 add_custom_target(
-  bindings-p2
+  bindings-wasip2
   COMMAND
     ${wit_bindgen} c
       --autodrop-borrows yes
@@ -80,7 +80,7 @@ add_custom_target(
 )
 
 add_custom_target(
-  bindings-p3
+  bindings-wasip3
   COMMAND
     ${wit_bindgen} c
       --autodrop-borrows yes
@@ -110,27 +110,27 @@ add_custom_target(
 
       # Disable async bindings generation for some functions which are only
       # ever called synchronously within libc.
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.metadata-hash"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.metadata-hash-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.stat"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.stat-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.get-flags"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.open-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.read-directory"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.create-directory-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.remove-directory-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.unlink-file-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.advise"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.sync-data"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.sync"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.set-size"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.symlink-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.link-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.readlink-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.rename-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.set-times-at"
-      "--async=-wasi:filesystem/types@${wasip3-version}#[method]descriptor.set-times"
-      "--async=-wasi:sockets/ip-name-lookup@${wasip3-version}#resolve-addresses"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.metadata-hash"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.metadata-hash-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.stat"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.stat-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.get-flags"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.open-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.read-directory"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.create-directory-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.remove-directory-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.unlink-file-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.advise"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.sync-data"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.sync"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.set-size"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.symlink-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.link-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.readlink-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.rename-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.set-times-at"
+      "--sync=wasi:filesystem/types@${wasip3-version}#[method]descriptor.set-times"
+      "--sync=wasi:sockets/ip-name-lookup@${wasip3-version}#resolve-addresses"
       ${CMAKE_SOURCE_DIR}/wasi/p3/wit
   COMMAND cmake -E copy wasip3.h ${bottom_half}/headers/public/wasi/__generated_wasip3.h
   COMMAND cmake -E copy wasip3_component_type.o ${bottom_half}/sources
@@ -138,7 +138,23 @@ add_custom_target(
   DEPENDS wit-bindgen wasip3-wits
 )
 
-add_custom_target(bindings DEPENDS bindings-p2 bindings-p3)
+add_custom_target(
+  bindings-webp2
+  COMMAND
+    ${wit_bindgen} c
+      --autodrop-borrows yes
+      --rename wasm:js/global=webp2
+      --rename wasm:js/console=webp2_console
+      --rename-world webp2
+      --type-section-suffix __wasi_libc
+      ${CMAKE_SOURCE_DIR}/web/p2/wit
+  COMMAND cmake -E copy webp2.h ${bottom_half}/headers/public/wasi/__generated_webp2.h
+  COMMAND cmake -E copy webp2_component_type.o ${bottom_half}/sources
+  COMMAND cmake -E copy webp2.c ${bottom_half}/sources
+  DEPENDS wit-bindgen
+)
+
+add_custom_target(bindings DEPENDS bindings-wasip2 bindings-wasip3 bindings-webp2)
 
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
   set(SED_INPLACE_ARGS -i '')
@@ -149,13 +165,14 @@ endif()
 function(wit_bindgen_edit p)
   add_custom_target(
     bindings-${p}-edit
-    COMMAND sed ${SED_INPLACE_ARGS} "'s_#include .wasi${p}\.h._#include \"wasi/wasi${p}.h\"_'" ${bottom_half}/sources/wasi${p}.c
-    COMMAND sed ${SED_INPLACE_ARGS} "s/extern void exit_exit/_Noreturn extern void exit_exit/" ${bottom_half}/headers/public/wasi/__generated_wasi${p}.h
-    COMMAND sed ${SED_INPLACE_ARGS} "s/extern void __wasm_import_exit_exit/_Noreturn extern void __wasm_import_exit_exit/" ${bottom_half}/sources/wasi${p}.c
+    COMMAND sed ${SED_INPLACE_ARGS} "'s_#include .${p}\.h._#include \"wasi/${p}.h\"_'" ${bottom_half}/sources/${p}.c
+    COMMAND sed ${SED_INPLACE_ARGS} "s/extern void exit_exit/_Noreturn extern void exit_exit/" ${bottom_half}/headers/public/wasi/__generated_${p}.h
+    COMMAND sed ${SED_INPLACE_ARGS} "s/extern void __wasm_import_exit_exit/_Noreturn extern void __wasm_import_exit_exit/" ${bottom_half}/sources/${p}.c
     DEPENDS bindings-${p}
   )
   add_dependencies(bindings bindings-${p}-edit)
 endfunction()
 
-wit_bindgen_edit(p2)
-wit_bindgen_edit(p3)
+wit_bindgen_edit(wasip2)
+wit_bindgen_edit(wasip3)
+wit_bindgen_edit(webp2)
