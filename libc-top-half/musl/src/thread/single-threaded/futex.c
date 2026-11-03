@@ -1,5 +1,3 @@
-// We cannot support futexes in single-threaded mode, so we just trap if we need to wait, and make waking a no-op.
-
 #include <wasi/libc.h>
 #include <wasi/api.h>
 #include "common/time.h"
@@ -19,28 +17,25 @@ int __wasilibc_futex_wait(volatile int *addr, int val, clockid_t clk,
     return -EWOULDBLOCK;
   }
 
+  // If this operation has a timeout, then without a thread we'll never receive
+  // a notification. Translate this to a sleep call in such a situation.
   if (at) {
-    if (at->tv_nsec >= 1000000000UL)
-      return -EINVAL;
-    if (at->tv_nsec < 0)
-      return -EINVAL;
-
+    int flags2 = 0;
     if (flags & __WASILIBC_FUTEX_TIMESPEC_ABSOLUTE) {
-      struct timespec to;
-      if (__clock_gettime(clk, &to))
-        return -EINVAL;
-      to.tv_sec = at->tv_sec - to.tv_sec;
-      if ((to.tv_nsec = at->tv_nsec - to.tv_nsec) < 0) {
-        to.tv_sec--;
-        to.tv_nsec += 1000000000;
-      }
-      if (to.tv_sec < 0)
+      // If `tv_sec` points into the past with an absolute deadline then that
+      // timeout has already elapsed so return as such.
+      if (at->tv_sec < 0 && at->tv_nsec >= 0 && at->tv_nsec < 1000000000L)
         return -ETIMEDOUT;
-    } else {
-      if (at->tv_sec < 0)
-        return -EINVAL;
+      flags2 |= TIMER_ABSTIME;
     }
+    int r = __clock_nanosleep(clk, flags2, at, NULL);
+    if (r == 0)
+      return -ETIMEDOUT;
+    return -r;
   }
+
+  // If this operation has no timeout then no other thread will ever wake this
+  // up, so instead of blocking forever just trap.
   __builtin_trap();
 }
 
@@ -51,6 +46,6 @@ int __wasilibc_futex_wake(volatile int *addr, int count, unsigned flags)
   if (flags != 0 && flags != __WASILIBC_FUTEX_YIELD) {
     return -EINVAL;
   }
-  // no-op
+  // no-op, by definition there can't be any waiting threads.
   return 0;
 }
