@@ -12,6 +12,7 @@
 
 int main(void) {
   pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+  pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
   struct timespec now;
   TEST(clock_gettime(CLOCK_REALTIME, &now) == 0);
   now.tv_nsec += 50 * 1000000;
@@ -19,6 +20,8 @@ int main(void) {
     now.tv_sec++;
     now.tv_nsec -= 1000000000;
   }
-  TEST(pthread_cond_timedwait(&cond, NULL, &now) == ETIMEDOUT);
+  TEST(pthread_mutex_lock(&mutex) == 0);
+  TEST(pthread_cond_timedwait(&cond, &mutex, &now) == ETIMEDOUT);
+  TEST(pthread_mutex_unlock(&mutex) == 0);
   return t_status;
 }

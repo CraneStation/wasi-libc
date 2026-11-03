@@ -52,7 +52,6 @@ int main(void) {
   inc_ns(&monotonic, 2000);
 
   // Build that can actually block all time out with short timeouts.
-#ifdef _REENTRANT
   TEST(__wasilibc_futex_wait((volatile void *)&futex_word, 0, CLOCK_REALTIME,
                              &short_timeout, 0) == -ETIMEDOUT);
   TEST(__wasilibc_futex_wait((volatile void *)&futex_word, 0, CLOCK_MONOTONIC,
@@ -63,7 +62,6 @@ int main(void) {
   TEST(__wasilibc_futex_wait((volatile void *)&futex_word, 0, CLOCK_MONOTONIC,
                              &monotonic,
                              __WASILIBC_FUTEX_TIMESPEC_ABSOLUTE) == -ETIMEDOUT);
-#endif
 
   // Invalid futex waits
   struct timespec invalid;

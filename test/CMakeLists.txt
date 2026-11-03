@@ -667,20 +667,13 @@ endif()
 add_wasilibc_test(tls_smoke.c)
 add_wasilibc_test(cwd_relative_threads.c FS)
 
-add_wasilibc_test(futex_wait_in_past.c)
 add_wasilibc_test(futex_wait_mismatch.c)
 add_wasilibc_test(futex_flags.c)
 if (NOT TEST_WITH_V8)
   add_wasilibc_test(futex_wait_timeout.c)
-
-  # This is tested without a shared library to assist with setting test
-  # properties, and this is expected to trap on non-threaded targets
-  # since futex can't block.
-  add_wasilibc_test(pthread_timedwait_block.c NOSHARED)
-  if (NOT WASILIBC_MULTITHREADING)
-    set_tests_properties(pthread_timedwait_block.wasm PROPERTIES
-      PASS_REGULAR_EXPRESSION "wasm `unreachable` instruction executed")
-  endif()
+  add_wasilibc_test(futex_wait_in_past.c)
+  add_wasilibc_test(pthread_timedwait_block.c)
+  add_wasilibc_test(pthread_timedwait_expired.c)
 endif()
 if (WASILIBC_MULTITHREADING AND NOT TEST_WITH_V8)
   add_wasilibc_test(futex_wake_one.c)
