@@ -21,6 +21,7 @@ static void test_elapsed(struct timespec *start_time, struct timespec *end_time,
   TEST(nanoseconds_elapsed >= ns_to_sleep);
 }
 
+#ifndef __wasip1__
 static void add_ns(struct timespec *ts, long ns) {
   ts->tv_nsec += ns;
   while (ts->tv_nsec >= 1000000000L) {
@@ -32,6 +33,7 @@ static void add_ns(struct timespec *ts, long ns) {
     ts->tv_sec -= 1;
   }
 }
+#endif
 
 // Test some basic operations. Note that the actual duration of the sleep is
 // not yet tested here since sleeping is currently only relative to the
@@ -39,7 +41,7 @@ static void add_ns(struct timespec *ts, long ns) {
 // offers.
 static void basic_functionality(clockid_t clock) {
   long ns_to_sleep = 1E6;
-  struct timespec deadline, time_to_sleep;
+  struct timespec time_to_sleep;
 
   // relative sleep
   time_to_sleep.tv_sec = 0;
@@ -47,6 +49,7 @@ static void basic_functionality(clockid_t clock) {
   TEST(clock_nanosleep(clock, 0, &time_to_sleep, NULL) == 0);
 
 #ifndef __wasip1__
+  struct timespec deadline;
   // absolute sleep in the past
   clock_gettime(clock, &deadline);
   add_ns(&deadline, -1000000L);
