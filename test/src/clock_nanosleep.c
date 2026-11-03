@@ -71,8 +71,7 @@ static void basic_functionality(clockid_t clock) {
   TEST(clock_nanosleep(clock, TIMER_ABSTIME, &invalid, NULL) == EINVAL);
   time_to_sleep.tv_sec = 0;
   time_to_sleep.tv_nsec = 0;
-  TEST(clock_nanosleep(clock, ~TIMER_ABSTIME, &time_to_sleep,
-                       NULL) == EINVAL);
+  TEST(clock_nanosleep(clock, ~TIMER_ABSTIME, &time_to_sleep, NULL) == EINVAL);
 }
 
 int main(void) {
