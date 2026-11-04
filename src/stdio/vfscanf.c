@@ -226,6 +226,8 @@ int vfscanf(FILE *restrict f, const char *restrict fmt, va_list ap)
 			k = t=='c' ? width+1U : 31;
 			if (size == SIZE_l) {
 				if (alloc) {
+					if (k > -1/sizeof(wchar_t))
+						k = -1/sizeof(wchar_t);
 					wcs = malloc(k*sizeof(wchar_t));
 					if (!wcs) goto alloc_fail;
 				} else {

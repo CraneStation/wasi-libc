@@ -27,9 +27,10 @@ static const char messages[] = {
   "\0Unknown error"
 };
 
-size_t regerror(int e, const regex_t *restrict preg, char *restrict buf, size_t size)
+size_t regerror(int c, const regex_t *restrict preg, char *restrict buf, size_t size)
 {
 	const char *s;
+	unsigned e=c;
 	for (s=messages; e && *s; e--, s+=strlen(s)+1);
 	if (!*s) s++;
 	s = LCTRANS_CUR(s);

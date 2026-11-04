@@ -368,9 +368,9 @@ long double powl(long double x, long double y)
 
 	/* Test the power of 2 for overflow */
 	if (w > MEXP)
-		return huge * huge;  /* overflow */
+		return (nflg ? -1 : 1) * huge * huge; /* overflow */
 	if (w < MNEXP)
-		return twom10000 * twom10000;  /* underflow */
+		return (nflg ? -1 : 1) * twom10000 * twom10000; /* underflow */
 
 	e = w;
 	Hb = H - Ha;

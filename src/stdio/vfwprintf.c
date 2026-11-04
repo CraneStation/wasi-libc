@@ -206,6 +206,7 @@ static int wprintf_core(FILE *f, const wchar_t *fmt, va_list *ap, union arg *nl_
 				w = f ? va_arg(*ap, int) : 0;
 				s++;
 			} else goto inval;
+			if (w==INT_MIN) goto overflow;
 			if (w<0) fl|=LEFT_ADJ, w=-w;
 		} else if ((w=getint(&s))<0) goto overflow;
 

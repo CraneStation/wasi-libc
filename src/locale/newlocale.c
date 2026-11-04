@@ -23,8 +23,8 @@ static locale_t do_newlocale(int mask, const char *name, locale_t loc)
 	struct __locale_struct tmp;
 
 	for (int i=0; i<LC_ALL; i++) {
-		tmp.cat[i] = (!(mask & (1<<i)) && loc) ? loc->cat[i] :
-			__get_locale(i, (mask & (1<<i)) ? name : "");
+		tmp.cat[i] = !(mask & (1<<i)) ? loc ? loc->cat[i] : 0 :
+			__get_locale(i, name);
 		if (tmp.cat[i] == LOC_MAP_FAILED)
 			return 0;
 	}

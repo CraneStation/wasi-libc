@@ -41,6 +41,10 @@ static void error_impl(const char *, ...);
 static void error_noop(const char *, ...);
 static void (*error)(const char *, ...) = error_noop;
 
+static void set_errno_impl(int);
+static void set_errno_noop(int);
+static void (*set_errno)(int) = set_errno_noop;
+
 #define MAXP2(a,b) (-(-(a)&-(b)))
 #define ALIGN(x,y) ((x)+(y)-1 & -(y))
 
@@ -1424,6 +1428,7 @@ static void reloc_all(struct dso *p)
 			long ret = __syscall(SYS_mprotect, laddr(p, p->relro_start),
 				p->relro_end-p->relro_start, PROT_READ);
 			if (ret != 0 && ret != -ENOSYS) {
+				set_errno(-ret);
 				error("Error relocating %s: RELRO protection failed: %m",
 					p->name);
 				if (runtime) longjmp(*rtld_fail, 1);
@@ -1825,6 +1830,7 @@ void __dls3(size_t *sp, size_t *auxv)
 
 	/* Activate error handler function */
 	error = error_impl;
+	set_errno = set_errno_impl;
 
 	/* If the main program was already loaded by the kernel,
 	 * AT_PHDR will point to some location other than the dynamic
@@ -2435,5 +2441,14 @@ static void error_impl(const char *fmt, ...)
 }
 
 static void error_noop(const char *fmt, ...)
+{
+}
+
+static void set_errno_impl(int e)
+{
+	errno = e;
+}
+
+static void set_errno_noop(int e)
 {
 }

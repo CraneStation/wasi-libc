@@ -7,11 +7,11 @@ weak_alias(dummy, __unlist_locked_file);
 int fclose(FILE *f)
 {
 	int r;
-	
-	FLOCK(f);
+	FILE **head = 0;
+
 	r = fflush(f);
+	if (f->pipe_pid) head = __ofl_lock();
 	r |= f->close(f);
-	FUNLOCK(f);
 
 	/* Past this point, f is closed and any further explict access
 	 * to it is undefined. However, it still exists as an entry in
@@ -25,7 +25,7 @@ int fclose(FILE *f)
 
 	__unlist_locked_file(f);
 
-	FILE **head = __ofl_lock();
+	if (!head) head = __ofl_lock();
 	if (f->prev) f->prev->next = f->next;
 	if (f->next) f->next->prev = f->prev;
 	if (*head == f) *head = f->next;

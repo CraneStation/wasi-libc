@@ -485,6 +485,7 @@ static int printf_core(FILE *f, const char *fmt, va_list *ap, union arg *nl_arg,
 				w = f ? va_arg(*ap, int) : 0;
 				s++;
 			} else goto inval;
+			if (w==INT_MIN) goto overflow;
 			if (w<0) fl|=LEFT_ADJ, w=-w;
 		} else if ((w=getint(&s))<0) goto overflow;
 

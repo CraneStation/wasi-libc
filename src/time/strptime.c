@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <strings.h>
+#include "time_impl.h"
 
 char *strptime(const char *restrict s, const char *restrict f, struct tm *restrict tm)
 {
@@ -207,16 +208,8 @@ char *strptime(const char *restrict s, const char *restrict f, struct tm *restri
 			s += 5;
 			break;
 		case 'Z':
-			if (!strncmp(s, tzname[0], len = strlen(tzname[0]))) {
-				tm->tm_isdst = 0;
-				s += len;
-			} else if (!strncmp(s, tzname[1], len=strlen(tzname[1]))) {
-				tm->tm_isdst = 1;
-				s += len;
-			} else {
-				/* FIXME: is this supposed to be an error? */
-				while ((*s|32)-'a' <= 'z'-'a') s++;
-			}
+			i = __tzname_to_isdst(&s);
+			if (i>=0) tm->tm_isdst = i;
 			break;
 		case '%':
 			if (*s++ != '%') return 0;

@@ -196,7 +196,7 @@ static void do_tzset()
 	zi = map;
 	if (map) {
 		int scale = 2;
-		if (map[4]!='1') {
+		if (map[4]) {
 			size_t skip = zi_dotprod(zi+20, VEC(1,1,8,5,6,1), 6);
 			trans = zi+skip+44+44;
 			scale++;
@@ -435,4 +435,23 @@ const char *__tm_to_tzname(const struct tm *tm)
 		p = "";
 	UNLOCK(lock);
 	return p;
+}
+
+int __tzname_to_isdst(const char *restrict *s)
+{
+	size_t len;
+	int isdst = -1;
+	LOCK(lock);
+	if (tzname[0] && !strncmp(*s, tzname[0], len = strlen(tzname[0]))) {
+		isdst = 0;
+		*s += len;
+	} else if (tzname[1] && !strncmp(*s, tzname[1], len=strlen(tzname[1]))) {
+		isdst = 1;
+		*s += len;
+	} else {
+		/* FIXME: is this supposed to be an error? */
+		while (isalpha(**s)) ++*s;
+	}
+	UNLOCK(lock);
+	return isdst;
 }

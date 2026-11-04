@@ -33,6 +33,7 @@ TYPEDEF long blksize_t;
 TYPEDEF _Int64 blkcnt_t;
 TYPEDEF unsigned _Int64 fsblkcnt_t;
 TYPEDEF unsigned _Int64 fsfilcnt_t;
+TYPEDEF unsigned short reclen_t;
 
 TYPEDEF unsigned wint_t;
 TYPEDEF unsigned long wctype_t;

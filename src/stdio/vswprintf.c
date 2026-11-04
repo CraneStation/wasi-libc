@@ -54,5 +54,9 @@ int vswprintf(wchar_t *restrict s, size_t n, const wchar_t *restrict fmt, va_lis
 	}
 	r = vfwprintf(&f, fmt, ap);
 	sw_write(&f, 0, 0);
-	return r>=n ? -1 : r;
+	if (r>=n) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	return r;
 }

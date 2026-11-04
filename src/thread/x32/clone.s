@@ -8,7 +8,7 @@ __clone:
 	mov %rdx,%rdi
 	mov %r8,%rdx
 	mov %r9,%r8
-	mov 8(%rsp),%r10
+	mov 8(%rsp),%r10d
 	mov %r11,%r9
 	and $-16,%rsi
 	sub $8,%rsi

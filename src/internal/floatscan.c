@@ -256,7 +256,7 @@ static long double decfloat(FILE *f, int c, int bits, int emin, int sign, int po
 
 	/* Assemble desired bits into floating point variable */
 	for (y=i=0; i<LD_B1B_DIG; i++) {
-		if ((a+i & MASK)==z) x[(z=(z+1 & MASK))-1] = 0;
+		if ((a+i & MASK)==z) x[z] = 0, z = z+1 & MASK;
 		y = 1000000000.0L * y + x[a+i & MASK];
 	}
 
@@ -299,10 +299,9 @@ static long double decfloat(FILE *f, int c, int bits, int emin, int sign, int po
 
 	if ((e2+LDBL_MANT_DIG & INT_MAX) > emax-5) {
 		if (fabsl(y) >= 2/LDBL_EPSILON) {
-			if (denormal && bits==LDBL_MANT_DIG+e2-emin)
-				denormal = 0;
 			y *= 0.5;
 			e2++;
+			if (e2+LDBL_MANT_DIG >= -emax+3) denormal = 0;
 		}
 		if (e2+LDBL_MANT_DIG>emax || (denormal && frac))
 			errno = ERANGE;
@@ -347,7 +346,7 @@ static long double hexfloat(FILE *f, int bits, int emin, int sign, int pok)
 			else d = c-'0';
 			if (dc<8) {
 				x = x*16 + d;
-			} else if (dc < LDBL_MANT_DIG/4+1) {
+			} else if (dc < (LDBL_MANT_DIG+3)/4+1) {
 				y += d*(scale/=16);
 			} else if (d && !gottail) {
 				y += 0.5*scale;

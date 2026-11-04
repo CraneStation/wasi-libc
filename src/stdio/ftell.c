@@ -12,8 +12,13 @@ off_t __ftello_unlocked(FILE *f)
 	/* Adjust for data in buffer. */
 	if (f->rend)
 		pos += f->rpos - f->rend;
-	else if (f->wbase)
+	else if (f->wbase) {
+		if (f->wpos - f->wbase > LLONG_MAX - pos) {
+			errno = EOVERFLOW;
+			return -1;
+		}
 		pos += f->wpos - f->wbase;
+	}
 	return pos;
 }
 

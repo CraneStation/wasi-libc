@@ -29,8 +29,8 @@ static int do_wordexp(const char *s, wordexp_t *we, int flags)
 	int sq=0, dq=0;
 	size_t np=0;
 	char *w, **tmp;
-	char *redir = (flags & WRDE_SHOWERR) ? "" : "2>/dev/null";
 	int err = 0;
+	int null = -1;
 	FILE *f;
 	size_t wc = 0;
 	char **wv = 0;
@@ -97,23 +97,31 @@ static int do_wordexp(const char *s, wordexp_t *we, int flags)
 	}
 
 	if (pipe2(p, O_CLOEXEC) < 0) goto nospace;
+	if (!(flags & WRDE_SHOWERR)) {
+		null = open("/dev/null", O_WRONLY|O_CLOEXEC);
+		if (null < 0) goto nospace;
+	}
 	__block_all_sigs(&set);
 	pid = fork();
 	__restore_sigs(&set);
 	if (pid < 0) {
 		close(p[0]);
 		close(p[1]);
+		close(null);
 		goto nospace;
 	}
 	if (!pid) {
 		if (p[1] == 1) fcntl(1, F_SETFD, 0);
 		else dup2(p[1], 1);
+		if (null == 2) fcntl(2, F_SETFD, 0);
+		else dup2(null, 2);
 		execl("/bin/sh", "sh", "-c",
-			"eval \"printf %s\\\\\\\\0 x $1 $2\"",
-			"sh", s, redir, (char *)0);
+			"eval \"set --;printf %s\\\\\\\\0 x $1\"",
+			"sh", s, (char *)0);
 		_exit(1);
 	}
 	close(p[1]);
+	close(null);
 	
 	f = fdopen(p[0], "r");
 	if (!f) {
@@ -136,7 +144,10 @@ static int do_wordexp(const char *s, wordexp_t *we, int flags)
 		if (i+1 >= l) {
 			l += l/2+10;
 			tmp = realloc(wv, l*sizeof(char *));
-			if (!tmp) break;
+			if (!tmp) {
+				free(w);
+				break;
+			}
 			wv = tmp;
 		}
 		wv[i++] = w;

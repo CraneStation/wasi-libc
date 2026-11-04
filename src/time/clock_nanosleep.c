@@ -5,6 +5,15 @@
 #define IS32BIT(x) !((x)+0x80000000ULL>>32)
 #define CLAMP(x) (int)(IS32BIT(x) ? (x) : 0x7fffffffU+((0ULL+(x))>>63))
 
+static int __sys_nanosleep_cp(const void *req, void *rem)
+{
+#ifdef SYS_nanosleep
+	return __syscall_cp(SYS_nanosleep, req, rem);
+#else
+	return __syscall_cp(SYS_clock_nanosleep, CLOCK_REALTIME, 0, req, rem);
+#endif
+}
+
 int __clock_nanosleep(clockid_t clk, int flags, const struct timespec *req, struct timespec *rem)
 {
 	if (clk == CLOCK_THREAD_CPUTIME_ID) return EINVAL;
@@ -20,7 +29,7 @@ int __clock_nanosleep(clockid_t clk, int flags, const struct timespec *req, stru
 	long long extra = s - CLAMP(s);
 	long ts32[2] = { CLAMP(s), ns };
 	if (clk == CLOCK_REALTIME && !flags)
-		r = __syscall_cp(SYS_nanosleep, &ts32, &ts32);
+		r = __sys_nanosleep_cp(&ts32, &ts32);
 	else
 		r = __syscall_cp(SYS_clock_nanosleep, clk, flags, &ts32, &ts32);
 	if (r==-EINTR && rem && !(flags & TIMER_ABSTIME)) {
@@ -30,7 +39,7 @@ int __clock_nanosleep(clockid_t clk, int flags, const struct timespec *req, stru
 	return -r;
 #else
 	if (clk == CLOCK_REALTIME && !flags)
-		return -__syscall_cp(SYS_nanosleep, req, rem);
+		return -__sys_nanosleep_cp(req, rem);
 	return -__syscall_cp(SYS_clock_nanosleep, clk, flags, req, rem);
 #endif
 }
