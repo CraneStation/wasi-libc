@@ -908,6 +908,7 @@ ip_name_lookup_error_code_free
 ip_name_lookup_ip_address_free
 ip_name_lookup_list_ip_address_free
 ip_name_lookup_resolve_addresses
+ip_name_lookup_resolve_addresses_async
 ip_name_lookup_result_list_ip_address_error_code_free
 iprintf
 isalnum
