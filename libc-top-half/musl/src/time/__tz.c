@@ -462,6 +462,7 @@ int __tzname_to_isdst(const char *restrict *s)
 {
 	size_t len;
 	int isdst = -1;
+#ifdef __wasilibc_unmodified_upstream // timezone data
 	LOCK(lock);
 	if (tzname[0] && !strncmp(*s, tzname[0], len = strlen(tzname[0]))) {
 		isdst = 0;
@@ -474,5 +475,6 @@ int __tzname_to_isdst(const char *restrict *s)
 		while (isalpha(**s)) ++*s;
 	}
 	UNLOCK(lock);
+#endif
 	return isdst;
 }

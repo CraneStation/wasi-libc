@@ -10,7 +10,9 @@ int fclose(FILE *f)
 	FILE **head = 0;
 
 	r = fflush(f);
+#ifdef __wasilibc_unmodified_upstream // WASI has no popen
 	if (f->pipe_pid) head = __ofl_lock();
+#endif
 	r |= f->close(f);
 
 	/* Past this point, f is closed and any further explict access

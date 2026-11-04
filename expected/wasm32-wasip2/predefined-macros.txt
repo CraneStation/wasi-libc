@@ -706,8 +706,8 @@
 #define IGMP_v1_ROUTER 1
 #define IGMP_v2_ROUTER 2
 #define IN6ADDRSZ NS_IN6ADDRSZ
-#define IN6ADDR_ANY_INIT { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } }
-#define IN6ADDR_LOOPBACK_INIT { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } }
+#define IN6ADDR_ANY_INIT {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}}
+#define IN6ADDR_LOOPBACK_INIT {{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}}
 #define IN6_ARE_ADDR_EQUAL(a,b) __ARE_4_EQUAL((const uint32_t *)(a), (const uint32_t *)(b))
 #define IN6_IS_ADDR_LINKLOCAL(a) ((((uint8_t *) (a))[0]) == 0xfe && (((uint8_t *) (a))[1] & 0xc0) == 0x80)
 #define IN6_IS_ADDR_LOOPBACK(a) (((uint32_t *) (a))[0] == 0 && ((uint32_t *) (a))[1] == 0 && ((uint32_t *) (a))[2] == 0 && ((uint8_t *) (a))[12] == 0 && ((uint8_t *) (a))[13] == 0 && ((uint8_t *) (a))[14] == 0 && ((uint8_t *) (a))[15] == 1 )
@@ -2724,6 +2724,7 @@
 #define __DEFINED_pthread_rwlockattr_t 
 #define __DEFINED_pthread_spinlock_t 
 #define __DEFINED_pthread_t 
+#define __DEFINED_reclen_t 
 #define __DEFINED_register_t 
 #define __DEFINED_regoff_t 
 #define __DEFINED_sa_family_t 
@@ -2888,6 +2889,7 @@
 #define __NEED_pthread_rwlockattr_t 
 #define __NEED_pthread_spinlock_t 
 #define __NEED_pthread_t 
+#define __NEED_reclen_t 
 #define __NEED_register_t 
 #define __NEED_regoff_t 
 #define __NEED_sa_family_t 
