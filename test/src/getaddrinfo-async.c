@@ -5,25 +5,19 @@
 #include <string.h>
 #include <wasi/wasip3.h>
 
-bool __wasilibc_waitable_block_on(uint32_t waitable, wasip3_event_t *event,
-                                  monotonic_clock_duration_t timeout);
-void __wasilibc_poll_waitable(uint32_t waitable, wasip3_event_t *event);
-void __wasilibc_subtask_block_on_and_drop(wasip3_subtask_t subtask);
-
 enum { LOOKUP_SUCCESS = -1, LOOKUP_PENDING = -2 };
 
-static int lookup_outcome = LOOKUP_SUCCESS, defer_lookup,
-           allocations_until_failure, allocation_failure_at, subtask_pending,
-           subtasks_dropped;
+static int lookup_outcome = LOOKUP_SUCCESS, defer_lookup, allocations,
+           fail_allocation;
 static void *result_allocation;
 static bool empty_error_message;
 static const uint8_t *borrowed_name;
 static uint8_t *pending_result;
-static wasip3_subtask_t pending_subtask;
+static wasip3_subtask_t pending_subtask, lookup_subtask;
 
 void *__real_malloc(size_t size);
 void *__wrap_malloc(size_t size) {
-  if (allocations_until_failure && --allocations_until_failure == 0)
+  if (++allocations == fail_allocation)
     return NULL;
   return __real_malloc(size);
 }
@@ -38,7 +32,8 @@ void __wrap_free(void *ptr) {
 void __real_wasip3_subtask_drop(wasip3_subtask_t subtask);
 void __wrap_wasip3_subtask_drop(wasip3_subtask_t subtask) {
   assert(subtask != pending_subtask);
-  subtasks_dropped++;
+  if (subtask == lookup_subtask)
+    lookup_subtask = 0;
   __real_wasip3_subtask_drop(subtask);
 }
 
@@ -78,7 +73,6 @@ static void complete_lookup(void) {
   pending_result = NULL;
   borrowed_name = NULL;
   pending_subtask = 0;
-  allocations_until_failure = allocation_failure_at;
 }
 
 static void complete_event(const wasip3_event_t *event) {
@@ -121,11 +115,35 @@ wasip3_subtask_status_t __wrap_wasip3_subtask_cancel(wasip3_subtask_t subtask) {
   return status;
 }
 
+static bool wait_for_task(wasip3_subtask_t task, bool poll) {
+  wasip3_waitable_set_t set = wasip3_waitable_set_new();
+  wasip3_waitable_join(task, set);
+  wasip3_event_t event;
+  if (poll)
+    wasip3_waitable_set_poll(set, &event);
+  else
+    wasip3_waitable_set_wait(set, &event);
+  wasip3_waitable_join(task, 0);
+  wasip3_waitable_set_drop(set);
+  assert(event.event == WASIP3_EVENT_NONE ||
+         (event.event == WASIP3_EVENT_SUBTASK && event.waitable == task &&
+          event.code == WASIP3_SUBTASK_RETURNED));
+  return event.event != WASIP3_EVENT_NONE;
+}
+
+static void finish_task(wasip3_subtask_status_t status) {
+  if (WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED) {
+    wasip3_subtask_t task = WASIP3_SUBTASK_HANDLE(status);
+    assert(wait_for_task(task, false));
+    wasip3_subtask_drop(task);
+  }
+}
+
 static int32_t mock_resolve_addresses(uint8_t *name, size_t len,
                                       uint8_t *result) {
   assert(len == 13 && memcmp(name, "async.invalid", len) == 0);
   assert(!result_allocation && !pending_result && !borrowed_name &&
-         !pending_subtask);
+         !pending_subtask && !lookup_subtask);
   borrowed_name = name;
   pending_result = result;
   // Use a timer so tests do not need external DNS.
@@ -133,9 +151,8 @@ static int32_t mock_resolve_addresses(uint8_t *name, size_t len,
   if (defer_lookup)
     status = monotonic_clock_wait_for(
         lookup_outcome == LOOKUP_PENDING ? 60000000000 : 1000000);
-  subtask_pending = WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED;
-  if (subtask_pending)
-    pending_subtask = WASIP3_SUBTASK_HANDLE(status);
+  if (WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED)
+    lookup_subtask = pending_subtask = WASIP3_SUBTASK_HANDLE(status);
   else
     complete_lookup();
   return status;
@@ -160,8 +177,7 @@ void __wrap___wasm_import_ip_name_lookup_resolve_addresses(uint8_t *name,
     return;
   }
   wasip3_subtask_status_t status = mock_resolve_addresses(name, len, result);
-  if (WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED)
-    __wasilibc_subtask_block_on_and_drop(WASIP3_SUBTASK_HANDLE(status));
+  finish_task(status);
 }
 
 static void check_error(const ip_name_lookup_error_code_t *error) {
@@ -169,10 +185,23 @@ static void check_error(const ip_name_lookup_error_code_t *error) {
   if (error->tag == IP_NAME_LOOKUP_ERROR_CODE_OTHER) {
     assert(error->val.other.is_some == !empty_error_message);
     if (error->val.other.is_some) {
-      assert(error->val.other.val.ptr == result_allocation &&
-             error->val.other.val.len == 4);
+      assert(error->val.other.val.len == 4);
       assert(memcmp(error->val.other.val.ptr, "oops", 4) == 0);
     }
+  }
+}
+
+static void check_addresses(const ip_name_lookup_list_ip_address_t *addresses,
+                            size_t count) {
+  assert(addresses->ptr && addresses->len == count);
+  const sockets_ipv4_address_t *addr = &addresses->ptr[0].val.ipv4;
+  assert(addresses->ptr[0].tag == SOCKETS_IP_ADDRESS_IPV4 && addr->f0 == 127 &&
+         addr->f1 == 0 && addr->f2 == 0 && addr->f3 == 1);
+  if (count == 2) {
+    const sockets_ipv6_address_t *addr6 = &addresses->ptr[1].val.ipv6;
+    assert(addresses->ptr[1].tag == SOCKETS_IP_ADDRESS_IPV6 && !addr6->f0 &&
+           !addr6->f1 && !addr6->f2 && !addr6->f3 && !addr6->f4 && !addr6->f5 &&
+           !addr6->f6 && addr6->f7 == 1);
   }
 }
 
@@ -180,12 +209,10 @@ static void check_bindings(void) {
   wasip3_string_t name = {(uint8_t *)"async.invalid", 13};
   ip_name_lookup_list_ip_address_t addresses = {(void *)1, 7};
   ip_name_lookup_error_code_t error = {.tag = 255};
-  int dropped_before = subtasks_dropped;
   bool ok = ip_name_lookup_resolve_addresses(&name, &addresses, &error);
-  assert(ok == (lookup_outcome == LOOKUP_SUCCESS));
-  assert(subtasks_dropped == dropped_before + subtask_pending);
+  assert(ok == (lookup_outcome == LOOKUP_SUCCESS) && !lookup_subtask);
   if (ok) {
-    assert(addresses.ptr == result_allocation && addresses.len == 2);
+    check_addresses(&addresses, 2);
     assert(error.tag == 255);
     ip_name_lookup_list_ip_address_free(&addresses);
   } else {
@@ -197,40 +224,53 @@ static void check_bindings(void) {
 
   ip_name_lookup_result_list_ip_address_error_code_t result = {
       .is_err = true, .val.err.tag = 255};
-  dropped_before = subtasks_dropped;
   defer_lookup = !defer_lookup;
   wasip3_subtask_status_t status =
       ip_name_lookup_resolve_addresses_async(name, &result);
-  if (WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED)
-    __wasilibc_subtask_block_on_and_drop(WASIP3_SUBTASK_HANDLE(status));
+  finish_task(status);
   defer_lookup = !defer_lookup;
   assert(result.is_err == !ok);
   if (ok)
-    assert(result.val.ok.ptr == result_allocation && result.val.ok.len == 2);
+    check_addresses(&result.val.ok, 2);
   else
     check_error(&result.val.err);
   ip_name_lookup_result_list_ip_address_error_code_free(&result);
-  assert(!result_allocation &&
-         subtasks_dropped == dropped_before + subtask_pending);
+  assert(!result_allocation && !lookup_subtask);
 }
 
-static void check_lookup(int expected) {
+static int check_lookup(int expected, int fail_at) {
   struct addrinfo hints = {.ai_socktype = SOCK_STREAM,
                            .ai_flags = AI_CANONNAME};
-  struct addrinfo *addresses = NULL;
-  int dropped_before = subtasks_dropped;
-  assert(getaddrinfo("async.invalid", "443", &hints, &addresses) == expected);
-  assert(!result_allocation && !allocations_until_failure &&
-         subtasks_dropped == dropped_before + subtask_pending);
-  if (expected == 0) {
-    assert(addresses && addresses->ai_family == AF_INET);
-    assert(addresses->ai_next && addresses->ai_next->ai_family == AF_INET6);
-    assert(!addresses->ai_next->ai_next);
-    assert(strcmp(addresses->ai_canonname, "async.invalid") == 0);
+  struct addrinfo *addresses = (void *)1;
+  allocations = 0;
+  fail_allocation = fail_at;
+  int ret = getaddrinfo("async.invalid", "443", &hints, &addresses);
+  fail_allocation = 0;
+  assert(ret == expected || (fail_at && ret == EAI_MEMORY));
+  assert(!result_allocation && !lookup_subtask);
+  if (ret == 0) {
+    unsigned seen = 0;
+    assert(addresses && addresses->ai_canonname && addresses->ai_canonname[0]);
+    for (struct addrinfo *p = addresses; p; p = p->ai_next) {
+      bool ipv6 = p->ai_family == AF_INET6;
+      const struct sockaddr_in *addr4 = (void *)p->ai_addr;
+      const struct sockaddr_in6 *addr6 = (void *)p->ai_addr;
+      assert(p->ai_family == AF_INET || ipv6);
+      assert(p->ai_socktype == SOCK_STREAM && p->ai_protocol == IPPROTO_TCP);
+      assert(p->ai_addrlen == (ipv6 ? sizeof(*addr6) : sizeof(*addr4)));
+      assert(p->ai_addr->sa_family == p->ai_family);
+      assert((ipv6 ? addr6->sin6_port : addr4->sin_port) == htons(443));
+      assert(ipv6 ? IN6_IS_ADDR_LOOPBACK(&addr6->sin6_addr)
+                  : addr4->sin_addr.s_addr == htonl(INADDR_LOOPBACK));
+      assert(!(seen & (1u << ipv6)));
+      seen |= 1u << ipv6;
+    }
+    assert(seen == 3);
   } else {
     assert(addresses == NULL);
   }
   freeaddrinfo(addresses);
+  return allocations;
 }
 
 int main(int argc, char **argv) {
@@ -238,12 +278,14 @@ int main(int argc, char **argv) {
                         EAI_AGAIN,  EAI_FAIL,   EAI_SYSTEM};
   for (defer_lookup = 0; defer_lookup <= 1; defer_lookup++) {
     lookup_outcome = LOOKUP_SUCCESS;
-    check_lookup(0);
+    int allocation_points = check_lookup(0, 0);
+    for (int fail_at = 1; fail_at <= allocation_points; fail_at++)
+      check_lookup(0, fail_at);
     check_bindings();
     for (lookup_outcome = 0; lookup_outcome <= IP_NAME_LOOKUP_ERROR_CODE_OTHER;
          lookup_outcome++) {
       errno = 0;
-      check_lookup(errors[lookup_outcome]);
+      check_lookup(errors[lookup_outcome], 0);
       if (lookup_outcome == IP_NAME_LOOKUP_ERROR_CODE_ACCESS_DENIED)
         assert(errno == EACCES);
       if (lookup_outcome == IP_NAME_LOOKUP_ERROR_CODE_INVALID_ARGUMENT)
@@ -253,13 +295,6 @@ int main(int argc, char **argv) {
       check_bindings();
     }
   }
-  defer_lookup = 0;
-  lookup_outcome = LOOKUP_SUCCESS;
-  for (allocation_failure_at = 1; allocation_failure_at <= 5;
-       allocation_failure_at++)
-    check_lookup(EAI_MEMORY);
-  allocation_failure_at = 0;
-
   wasip3_string_t name = {(uint8_t *)"async.invalid", 13};
   ip_name_lookup_result_list_ip_address_error_code_t result = {
       .is_err = true, .val.err.tag = 255};
@@ -268,21 +303,17 @@ int main(int argc, char **argv) {
   for (int i = 0; i < 128; i++) {
     wasip3_subtask_status_t status =
         ip_name_lookup_resolve_addresses_async(name, &result);
-    assert(subtask_pending);
+    assert(WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED);
     wasip3_subtask_t subtask = WASIP3_SUBTASK_HANDLE(status);
-    wasip3_event_t event;
     if (i % 2)
-      assert(!__wasilibc_waitable_block_on(subtask, &event, 1000000));
-    else {
-      __wasilibc_poll_waitable(subtask, &event);
-      assert(event.event == WASIP3_EVENT_NONE);
-    }
+      finish_task(monotonic_clock_wait_for(1000000));
+    assert(!wait_for_task(subtask, true));
     status = wasip3_subtask_cancel(subtask);
     assert(WASIP3_SUBTASK_STATE(status) == WASIP3_SUBTASK_STARTED_CANCELLED ||
            WASIP3_SUBTASK_STATE(status) == WASIP3_SUBTASK_RETURNED_CANCELLED);
     wasip3_subtask_drop(subtask);
     assert(!pending_result && !borrowed_name && !pending_subtask &&
-           !result_allocation);
+           !result_allocation && !lookup_subtask);
   }
 
   for (int i = 0; i < 3; i++) {
@@ -295,10 +326,7 @@ int main(int argc, char **argv) {
         ip_name_lookup_resolve_addresses_async(name, &result);
     if (WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED) {
       subtask = WASIP3_SUBTASK_HANDLE(status);
-      wasip3_event_t event;
-      assert(__wasilibc_waitable_block_on(subtask, &event, 0));
-      assert(event.event == WASIP3_EVENT_SUBTASK && event.waitable == subtask &&
-             event.code == WASIP3_SUBTASK_RETURNED);
+      assert(wait_for_task(subtask, false));
     }
     assert(result.is_err == (lookup_outcome >= 0));
     ip_name_lookup_result_list_ip_address_error_code_free(&result);
@@ -311,30 +339,26 @@ int main(int argc, char **argv) {
   name = (wasip3_string_t){(uint8_t *)"127.0.0.1", 9};
   wasip3_subtask_status_t status =
       ip_name_lookup_resolve_addresses_async(name, &result);
-  if (WASIP3_SUBTASK_STATE(status) != WASIP3_SUBTASK_RETURNED)
-    __wasilibc_subtask_block_on_and_drop(WASIP3_SUBTASK_HANDLE(status));
+  finish_task(status);
   if (argc == 2) {
     assert(strcmp(argv[1], "allow") == 0);
-    assert(!result.is_err && result.val.ok.len == 1);
-    assert(result.val.ok.ptr[0].tag == SOCKETS_IP_ADDRESS_IPV4);
-    assert(result.val.ok.ptr[0].val.ipv4.f0 == 127);
-    assert(result.val.ok.ptr[0].val.ipv4.f3 == 1);
+    assert(!result.is_err);
+    check_addresses(&result.val.ok, 1);
   } else {
     assert(result.is_err);
   }
   ip_name_lookup_result_list_ip_address_error_code_free(&result);
 
-  ip_name_lookup_list_ip_address_t addresses;
-  ip_name_lookup_error_code_t error;
+  ip_name_lookup_list_ip_address_t addresses = {(void *)1, 7};
+  ip_name_lookup_error_code_t error = {.tag = 255};
   bool ok = ip_name_lookup_resolve_addresses(&name, &addresses, &error);
   assert(ok == (argc == 2));
   if (ok) {
-    assert(addresses.len == 1 &&
-           addresses.ptr[0].tag == SOCKETS_IP_ADDRESS_IPV4);
-    assert(addresses.ptr[0].val.ipv4.f0 == 127 &&
-           addresses.ptr[0].val.ipv4.f3 == 1);
+    check_addresses(&addresses, 1);
+    assert(error.tag == 255);
     ip_name_lookup_list_ip_address_free(&addresses);
   } else {
+    assert(addresses.ptr == (void *)1 && addresses.len == 7);
     ip_name_lookup_error_code_free(&error);
   }
 }
