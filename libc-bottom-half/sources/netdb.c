@@ -358,6 +358,9 @@ int getaddrinfo(const char *restrict host, const char *restrict serv,
 #endif
   }
 
+  if (result == NULL)
+    return EAI_NONAME;
+
   // If a canonical name is asked for just give what was passed in.
   if (result != NULL && host != NULL && flags & AI_CANONNAME) {
     result->ai_canonname = strdup(host);

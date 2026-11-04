@@ -174,12 +174,18 @@ int main(void) {
           if (start_error)
             check_lookup(errors[error].expected, 0);
           start_error = 0;
-          for (address_count = resolver_error ? 0 : 1; address_count <= 2;
-               address_count++) {
-            int allocation_points = check_lookup(errors[error].expected, 0);
+          for (address_count = 0; address_count <= 2; address_count++) {
+            int expected = !resolver_error && !address_count
+                               ? EAI_NONAME
+                               : errors[error].expected;
+            int allocation_points = check_lookup(expected, 0);
             for (int fail_at = 1; fail_at <= allocation_points; fail_at++)
-              check_lookup(errors[error].expected, fail_at);
+              check_lookup(expected, fail_at);
           }
         }
   }
+  address_count = 1;
+  deferred = start_error = resolver_error = 0;
+  hints = (struct addrinfo){.ai_family = AF_INET6};
+  check_lookup(EAI_NONAME, 0);
 }

@@ -476,6 +476,12 @@ if(WASI STREQUAL "p2")
     -Wl,--wrap=poll_pollable_drop_own
     -Wl,--wrap=poll_method_pollable_block)
 endif()
+if(WASI STREQUAL "p3")
+  add_wasilibc_test(getaddrinfo-empty.c NOSHARED
+    CFLAGS -UNDEBUG -Wno-unused-parameter LDFLAGS
+    -Wl,--wrap=ip_name_lookup_resolve_addresses
+    -Wl,--wrap=ip_name_lookup_list_ip_address_free)
+endif()
 add_wasilibc_test(chdir.c FS)
 add_wasilibc_test(close.c FS)
 add_wasilibc_test(pread.c FS)
