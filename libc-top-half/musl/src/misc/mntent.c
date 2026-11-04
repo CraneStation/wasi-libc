@@ -64,7 +64,7 @@ struct mntent *getmntent_r(FILE *f, struct mntent *mnt, char *linebuf, int bufle
 	mnt->mnt_freq = 0;
 	mnt->mnt_passno = 0;
 
-	do {
+again:	do {
 		if (use_internal) {
 			getline(&internal_buf, &internal_bufsize, f);
 			linebuf = internal_buf;
@@ -79,7 +79,7 @@ struct mntent *getmntent_r(FILE *f, struct mntent *mnt, char *linebuf, int bufle
 		}
 
 		len = strlen(linebuf);
-		if (len > INT_MAX) continue;
+		if (len > INT_MAX) goto again;
 		for (i = 0; i < sizeof n / sizeof *n; i++) n[i] = len;
 		sscanf(linebuf, " %n%*[^ \t\n]%n %n%*[^ \t\n]%n %n%*[^ \t\n]%n %n%*[^ \t\n]%n %d %d",
 			n, n+1, n+2, n+3, n+4, n+5, n+6, n+7,

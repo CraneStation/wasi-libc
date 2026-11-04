@@ -16,7 +16,7 @@ long long __tm_to_secs(const struct tm *tm)
 	}
 	long long t = __year_to_secs(year, &is_leap);
 	t += __month_to_secs(month, is_leap);
-	t += 86400LL * (tm->tm_mday-1);
+	t += 86400LL * (tm->tm_mday-1LL);
 	t += 3600LL * tm->tm_hour;
 	t += 60LL * tm->tm_min;
 	t += tm->tm_sec;

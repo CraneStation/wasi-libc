@@ -1,6 +1,6 @@
 #define LDSO_ARCH "or1k"
 
-#define TPOFF_K 0
+#define TPOFF_K (-16)
 
 #define REL_SYMBOLIC    R_OR1K_32
 #define REL_GOT         R_OR1K_GLOB_DAT

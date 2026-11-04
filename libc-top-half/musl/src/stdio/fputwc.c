@@ -15,7 +15,7 @@ wint_t __fputwc_unlocked(wchar_t c, FILE *f)
 
 	if (isascii(c)) {
 		c = putc_unlocked(c, f);
-	} else if (f->wpos + MB_LEN_MAX < f->wend) {
+	} else if (f->wpos && f->wend - f->wpos > MB_LEN_MAX) {
 		l = wctomb((void *)f->wpos, c);
 		if (l < 0) c = WEOF;
 		else f->wpos += l;

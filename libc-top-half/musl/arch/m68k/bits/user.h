@@ -1,6 +1,3 @@
-#undef __WORDSIZE
-#define __WORDSIZE 32
-
 struct user_m68kfp_struct {
 	unsigned long fpregs[24], fpcntl[3];
 };

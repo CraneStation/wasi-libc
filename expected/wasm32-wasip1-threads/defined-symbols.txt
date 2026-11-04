@@ -300,6 +300,7 @@ __tre_mem_alloc_impl
 __tre_mem_destroy
 __tre_mem_new_impl
 __tsearch_balance
+__tzname_to_isdst
 __uflow
 __unlist_locked_file
 __unlock

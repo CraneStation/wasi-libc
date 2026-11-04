@@ -74,6 +74,10 @@ static const unsigned short gb18030[126][190] = {
 #include "gb18030.h"
 };
 
+static const unsigned short gb18030utf[][2] = {
+#include "gb18030utf.h"
+};
+
 static const unsigned short big5[89][157] = {
 #include "big5.h"
 };
@@ -223,6 +227,8 @@ static unsigned uni_to_jis(unsigned c)
 		}
 	}
 }
+
+#define countof(a) (sizeof (a) / sizeof *(a))
 
 size_t iconv(iconv_t cd, char **restrict in, size_t *restrict inb, char **restrict out, size_t *restrict outb)
 {
@@ -430,15 +436,24 @@ size_t iconv(iconv_t cd, char **restrict in, size_t *restrict inb, char **restri
 				d = *((unsigned char *)*in + 3);
 				if (d-'0'>9) goto ilseq;
 				c += d-'0';
-				c += 128;
-				for (d=0; d<=c; ) {
-					k = 0;
-					for (int i=0; i<126; i++)
-						for (int j=0; j<190; j++)
-							if (gb18030[i][j]-d <= c-d)
-								k++;
-					d = c+1;
-					c += k;
+				/* Starting at 90 30 81 30 (189000), mapping is
+				 * linear without gaps, to U+10000 and up. */
+				if (c >= 189000) {
+					c -= 189000;
+					c += 0x10000;
+					if (c >= 0x110000) goto ilseq;
+					break;
+				}
+				/* Otherwise we must process an index into set
+				 * of characters unmapped by 2-byte table. */
+				for (int i=0; ; i++) {
+					if (i==countof(gb18030utf))
+						goto ilseq;
+					if (c<gb18030utf[i][1]) {
+						c += gb18030utf[i][0];
+						break;
+					}
+					c -= gb18030utf[i][1];
 				}
 				break;
 			}

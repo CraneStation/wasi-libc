@@ -1,4 +1,4 @@
-#ifdef __riscv_flen
+#ifndef __riscv_float_abi_soft
 
 .global feclearexcept
 .type feclearexcept, %function

@@ -8,17 +8,17 @@
 expl:
 	fldt 8(%esp)
 
-		# interesting case: 0x1p-32 <= |x| < 16384
-		# check if (exponent|0x8000) is in [0xbfff-32, 0xbfff+13]
+		# interesting case: 0x1p-32 <= |x| < 0x1p15
+		# check if (exponent|0x8000) is in [0xbfff-32, 0xbfff+14]
 	mov 16(%esp), %ax
 	or $0x8000, %ax
-	sub $0xbfdf, %ax
-	cmp $45, %ax
+	sub $0xbfe0, %ax
+	cmp $46, %ax
 	jbe 2f
 	test %ax, %ax
 	fld1
 	js 1f
-		# if |x|>=0x1p14 or nan return 2^trunc(x)
+		# if |x|>=0x1p15 or nan return 2^trunc(x)
 	fscale
 	fstp %st(1)
 	ret

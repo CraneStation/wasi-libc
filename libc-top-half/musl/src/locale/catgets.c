@@ -18,6 +18,10 @@ static int cmp(const void *a, const void *b)
 char *catgets (nl_catd catd, int set_id, int msg_id, const char *s)
 {
 #ifdef __wasilibc_unmodified_upstream // wasi-libc doesn't support catgets yet
+	if (catd == (nl_catd)-1) {
+		errno = EBADF;
+		return (char *)s;
+	}
 	const char *map = (const char *)catd;
 	uint32_t nsets = V(map+4);
 	const char *sets = map+20;
