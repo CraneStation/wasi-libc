@@ -409,6 +409,8 @@ typedef struct {
 	int position;
 	/* The highest back reference or -1 if none seen so far. */
 	int max_backref;
+	/* Bit mask of submatch IDs that can be back referenced. */
+	int backref_ok;
 	/* Compilation flags. */
 	int cflags;
 } tre_parse_ctx_t;
@@ -769,6 +771,8 @@ static reg_errcode_t marksub(tre_parse_ctx_t *ctx, tre_ast_node_t *node, int sub
 	node->submatch_id = subid;
 	node->num_submatches++;
 	ctx->n = node;
+	if (subid < 10)
+		ctx->backref_ok |= 1<<subid;
 	return REG_OK;
 }
 
@@ -864,6 +868,8 @@ static reg_errcode_t parse_atom(tre_parse_ctx_t *ctx, const char *s)
 			if (!ere && (unsigned)*s-'1' < 9) {
 				/* back reference */
 				int val = *s - '0';
+				if (!(ctx->backref_ok & 1<<val))
+					return REG_ESUBREG;
 				node = tre_ast_new_literal(ctx->mem, BACKREF, val, ctx->position++);
 				ctx->max_backref = MAX(val, ctx->max_backref);
 			} else {
@@ -1674,6 +1680,12 @@ tre_add_tags(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *tree,
   AST to TNFA compilation routines.
 */
 
+/* check if a+b overflows for a,b in [0,INT_MAX] */
+static int check_add(unsigned a, unsigned b)
+{
+	return a + b > INT_MAX;
+}
+
 typedef enum {
   COPY_RECURSE,
   COPY_SET_RESULT_PTR
@@ -1725,6 +1737,8 @@ tre_copy_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		    /* XXX - e.g. [ab] has only one position but two
 		       nodes, so we are creating holes in the state space
 		       here.  Not fatal, just wastes memory. */
+		    if (check_add(pos, *pos_add))
+		      return REG_ESPACE;
 		    pos += *pos_add;
 		    num_copied++;
 		  }
@@ -1820,6 +1834,8 @@ tre_copy_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 	  break;
 	}
     }
+  if (check_add(*pos_add, num_copied))
+    return REG_ESPACE;
   *pos_add += num_copied;
   return status;
 }
@@ -1864,6 +1880,8 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 		tre_literal_t *lit= node->obj;
 		if (!IS_SPECIAL(lit) || IS_BACKREF(lit))
 		  {
+		    if (check_add(lit->position, pos_add))
+		      return REG_ESPACE;
 		    lit->position += pos_add;
 		    if (lit->position > max_pos)
 		      max_pos = lit->position;
@@ -1992,6 +2010,8 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 	      }
 
 	    iter_depth--;
+	    if (check_add(pos_add_total, pos_add - pos_add_last))
+	      return REG_ESPACE;
 	    pos_add_total += pos_add - pos_add_last;
 	    if (iter_depth == 0)
 	      pos_add = pos_add_total;
@@ -2004,6 +2024,8 @@ tre_expand_ast(tre_mem_t mem, tre_stack_t *stack, tre_ast_node_t *ast,
 	}
     }
 
+  if (check_add(*position, pos_add_total))
+    return REG_ESPACE;
   *position += pos_add_total;
 
   /* `max_pos' should never be larger than `*position' if the above
@@ -2705,9 +2727,19 @@ regcomp(regex_t *restrict preg, const char *restrict regex, int cflags)
   /* Parse context. */
   tre_parse_ctx_t parse_ctx;
 
+  /* Limits: before tre_expand_ast, int values like position, subid or
+   * num_tags are bounded by 2x input length, used stack entries are
+   * bounded by 16x input length. input length is checked upfront to
+   * avoid overflows before expand. later, values that can grow big are
+   * bounds checked via check_add and xcalloc. */
+  const int input_limit = 1024000;
+  const int stack_limit = 8*input_limit;
+  if (strnlen(regex, input_limit) >= input_limit)
+    return REG_ESPACE;
+
   /* Allocate a stack used throughout the compilation process for various
      purposes. */
-  stack = tre_stack_new(512, 1024000, 128);
+  stack = tre_stack_new(512, stack_limit, 128);
   if (!stack)
     return REG_ESPACE;
   /* Allocate a fast memory allocator. */
@@ -2795,9 +2827,12 @@ regcomp(regex_t *restrict preg, const char *restrict regex, int cflags)
 	   for example "a*" or "ab*".	Figure out a simple way to detect
 	   this possibility. */
   tmp_ast_l = tree;
-  tmp_ast_r = tre_ast_new_literal(mem, 0, 0, parse_ctx.position++);
+  tmp_ast_r = tre_ast_new_literal(mem, 0, 0, parse_ctx.position);
   if (tmp_ast_r == NULL)
     ERROR_EXIT(REG_ESPACE);
+  if (check_add(parse_ctx.position, 1))
+    ERROR_EXIT(REG_ESPACE);
+  parse_ctx.position++;
 
   tree = tre_ast_new_catenation(mem, tmp_ast_l, tmp_ast_r);
   if (tree == NULL)
@@ -2807,22 +2842,22 @@ regcomp(regex_t *restrict preg, const char *restrict regex, int cflags)
   if (errcode != REG_OK)
     ERROR_EXIT(errcode);
 
-  counts = xmalloc(sizeof(int) * parse_ctx.position);
+  counts = xcalloc(sizeof(int), parse_ctx.position);
   if (counts == NULL)
     ERROR_EXIT(REG_ESPACE);
 
-  offs = xmalloc(sizeof(int) * parse_ctx.position);
+  offs = xcalloc(sizeof(int), parse_ctx.position);
   if (offs == NULL)
     ERROR_EXIT(REG_ESPACE);
 
-  for (i = 0; i < parse_ctx.position; i++)
-    counts[i] = 0;
   tre_ast_to_tnfa(tree, NULL, counts, NULL);
 
   add = 0;
   for (i = 0; i < parse_ctx.position; i++)
     {
       offs[i] = add;
+      if (check_add(add, counts[i] + 1))
+        ERROR_EXIT(REG_ESPACE);
       add += counts[i] + 1;
       counts[i] = 0;
     }

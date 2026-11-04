@@ -23,6 +23,7 @@ extern "C" {
 #define __NEED_blkcnt_t
 #define __NEED_fsblkcnt_t
 #define __NEED_fsfilcnt_t
+#define __NEED_reclen_t
 
 #define __NEED_id_t
 #define __NEED_key_t

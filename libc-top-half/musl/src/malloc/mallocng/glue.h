@@ -36,8 +36,10 @@
 #define brk(p) ((uintptr_t)__syscall(SYS_brk, p))
 
 #define mmap __mmap
+#define munmap __munmap
 #define madvise __madvise
 #define mremap __mremap
+#define mprotect __mprotect
 
 #define DISABLE_ALIGNED_ALLOC (__malloc_replaced && !__aligned_alloc_replaced)
 

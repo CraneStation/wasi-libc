@@ -48,16 +48,24 @@ static void *start(void *arg)
 
 	void (*notify)(union sigval) = args->sev->sigev_notify_function;
 	union sigval val = args->sev->sigev_value;
+	int cancel = 0;
 
-	/* The two-way semaphore synchronization ensures that we see
-	 * self->cancel set by the parent if timer creation failed or
-	 * self->timer_id if it succeeded, and informs the parent that
-	 * we are done accessing the arguments so that the parent can
-	 * proceed past their block lifetime. */
+	/* Waiting on sem1 ensures we see self->timer_id. */
 	while (sem_wait(&args->sem1));
+
+	/* If self->timer_id is -1 while the parent thread is still in
+	 * timer_create (before the sem_post to sem2) then the timer was
+	 * never created.  If it is -1 later after the sem_post then
+	 * it was cancelled via timer_delete. */
+	if (self->timer_id < 0)
+		cancel = 1;
+
+	/* Incrementing sem2 informs the parent that we are done checking
+	 * the initial value of self->timer_id, and accessing the arguments
+	 * so that the parent can proceed past their block lifetime. */
 	sem_post(&args->sem2);
 
-	if (self->cancel)
+	if (cancel)
 		return 0;
 	for (;;) {
 		siginfo_t si;
@@ -83,6 +91,7 @@ int timer_create(clockid_t clk, struct sigevent *restrict evp, timer_t *restrict
 	struct ksigevent ksev, *ksevp=0;
 	int timerid;
 	sigset_t set;
+	int cs;
 
 	switch (evp ? evp->sigev_notify : SIGEV_SIGNAL) {
 	case SIGEV_NONE:
@@ -133,14 +142,22 @@ int timer_create(clockid_t clk, struct sigevent *restrict evp, timer_t *restrict
 		ksev.sigev_signo = SIGTIMER;
 		ksev.sigev_notify = SIGEV_THREAD_ID;
 		ksev.sigev_tid = td->tid;
-		if (syscall(SYS_timer_create, clk, &ksev, &timerid) < 0) {
+		r = __syscall(SYS_timer_create, clk, &ksev, &timerid);
+		if (r < 0) {
 			timerid = -1;
-			td->cancel = 1;
 		}
 		td->timer_id = timerid;
+
+		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &cs);
 		sem_post(&args.sem1);
 		while (sem_wait(&args.sem2));
-		if (timerid < 0) return -1;
+		pthread_setcancelstate(cs, 0);
+
+		if (timerid < 0) {
+			errno = -r;
+			return -1;
+		}
+
 		*res = (void *)(INTPTR_MIN | (uintptr_t)td>>1);
 		break;
 	default:

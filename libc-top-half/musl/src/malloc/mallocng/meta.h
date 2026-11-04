@@ -129,12 +129,13 @@ static inline int get_slot_index(const unsigned char *p)
 static inline struct meta *get_meta(const unsigned char *p)
 {
 	assert(!((uintptr_t)p & 15));
-	int offset = *(const uint16_t *)(p - 2);
+	size_t offset = *(const uint16_t *)(p - 2);
 	int index = get_slot_index(p);
 	if (p[-4]) {
 		assert(!offset);
 		offset = *(uint32_t *)(p - 8);
 		assert(offset > 0xffff);
+		assert(offset < PTRDIFF_MAX/UNIT);
 	}
 	const struct group *base = (const void *)(p - UNIT*offset - UNIT);
 	const struct meta *meta = base->meta;

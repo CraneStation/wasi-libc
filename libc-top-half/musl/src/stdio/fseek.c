@@ -1,4 +1,5 @@
 #include "stdio_impl.h"
+#include <limits.h>
 #include <errno.h>
 
 int __fseeko_unlocked(FILE *f, off_t off, int whence)
@@ -10,7 +11,13 @@ int __fseeko_unlocked(FILE *f, off_t off, int whence)
 	}
 
 	/* Adjust relative offset for unread data in buffer, if any. */
-	if (whence == SEEK_CUR && f->rend) off -= f->rend - f->rpos;
+	if (whence == SEEK_CUR && f->rend) {
+		if (off < LLONG_MIN + (f->rend - f->rpos)) {
+			errno = EOVERFLOW;
+			return -1;
+		}
+		off -= f->rend - f->rpos;
+	}
 
 	/* Flush write buffer, and report error on failure. */
 	if (f->wpos != f->wbase) {

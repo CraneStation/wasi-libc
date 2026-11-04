@@ -186,6 +186,11 @@ struct f_owner_ex {
 #ifdef __wasilibc_unmodified_upstream /* WASI has no fallocate */
 #define FALLOC_FL_KEEP_SIZE 1
 #define FALLOC_FL_PUNCH_HOLE 2
+#define FALLOC_FL_COLLAPSE_RANGE 8
+#define FALLOC_FL_ZERO_RANGE 16
+#define FALLOC_FL_INSERT_RANGE 32
+#define FALLOC_FL_UNSHARE_RANGE 64
+#define FALLOC_FL_WRITE_ZEROES 128
 #endif
 #ifdef __wasilibc_unmodified_upstream /* WASI has no name_to_handle_at */
 #define MAX_HANDLE_SZ 128
