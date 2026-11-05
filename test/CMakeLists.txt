@@ -732,7 +732,7 @@ add_external_entrypoint_test(external_entrypoint_pthread_tls.c)
 
 # ========= sockets-related tests ===============================
 
-if(WASI STREQUAL "p3")
+if (WASI STREQUAL "p3")
   add_wasilibc_test(getaddrinfo-async.c NETWORK NOSHARED)
 endif()
 

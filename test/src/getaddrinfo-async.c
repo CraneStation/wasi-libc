@@ -25,5 +25,10 @@ int main(void) {
   if (result.is_err || result.val.ok.len == 0)
     t_error("expected an address for localhost\n");
   ip_name_lookup_result_list_ip_address_error_code_free(&result);
+  result.is_err =
+      !ip_name_lookup_resolve_addresses(&name, &result.val.ok, &result.val.err);
+  if (result.is_err || result.val.ok.len == 0)
+    t_error("expected an address from the blocking lookup\n");
+  ip_name_lookup_result_list_ip_address_error_code_free(&result);
   return t_status;
 }
