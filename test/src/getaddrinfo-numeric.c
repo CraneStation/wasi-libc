@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/socket.h>
 
@@ -35,7 +36,7 @@ static in_port_t port_of(const struct addrinfo *ai) {
 
 int main(void) {
   struct addrinfo hints, *res;
-  char host[INET6_ADDRSTRLEN], port[16];
+  char host[NI_MAXHOST], port[16];
   const int numeric = NI_NUMERICHOST | NI_NUMERICSERV;
 
   // IPv4 literal, numeric port, stream-only.
@@ -111,6 +112,15 @@ int main(void) {
   TEST(getnameinfo(res->ai_addr, res->ai_addrlen, NULL, 0, port, sizeof(port),
                    0) == 0);
   TEST(strcmp(port, "ftp") == 0);
+  // A full IPv6 address and maximum scope ID and port fit exactly.
+  const char *scoped = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff%4294967295";
+  memset(&((struct sockaddr_in6 *)res->ai_addr)->sin6_addr, 0xff,
+         sizeof(struct in6_addr));
+  ((struct sockaddr_in6 *)res->ai_addr)->sin6_scope_id = UINT32_MAX;
+  ((struct sockaddr_in6 *)res->ai_addr)->sin6_port = htons(65535);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, strlen(scoped) + 1,
+                   port, sizeof("65535"), numeric) == 0);
+  TEST(strcmp(host, scoped) == 0 && strcmp(port, "65535") == 0);
   res->ai_addr->sa_family = AF_UNSPEC;
   TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), NULL, 0,
                    numeric) == EAI_FAMILY);
