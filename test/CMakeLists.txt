@@ -733,15 +733,7 @@ add_external_entrypoint_test(external_entrypoint_pthread_tls.c)
 # ========= sockets-related tests ===============================
 
 if(WASI STREQUAL "p3")
-  add_wasilibc_test(getaddrinfo-async.c NOSHARED ENGINE_ARG -Wtimeout=10s
-    CFLAGS -UNDEBUG
-    LDFLAGS -Wl,--wrap=__wasm_import_ip_name_lookup_resolve_addresses
-    -Wl,--wrap=__wasm_import_ip_name_lookup_resolve_addresses_async
-    -Wl,--wrap=malloc -Wl,--wrap=free -Wl,--wrap=wasip3_subtask_drop
-    -Wl,--wrap=wasip3_waitable_set_wait -Wl,--wrap=wasip3_waitable_set_poll
-    -Wl,--wrap=wasip3_subtask_cancel)
-  register_test(getaddrinfo-async-allowed.wasm getaddrinfo-async.wasm
-    ENGINE_ARG "-Wtimeout=10s;-Sallow-ip-name-lookup" ARGV allow)
+  add_wasilibc_test(getaddrinfo-async.c NETWORK NOSHARED)
 endif()
 
 if (NOT (WASI STREQUAL "p1"))
