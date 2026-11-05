@@ -35,6 +35,8 @@ static in_port_t port_of(const struct addrinfo *ai) {
 
 int main(void) {
   struct addrinfo hints, *res;
+  char host[INET6_ADDRSTRLEN], port[16];
+  const int numeric = NI_NUMERICHOST | NI_NUMERICSERV;
 
   // IPv4 literal, numeric port, stream-only.
   memset(&hints, 0, sizeof(hints));
@@ -47,6 +49,27 @@ int main(void) {
   TEST(res->ai_addrlen == sizeof(struct sockaddr_in));
   TEST(v4_of(res) == htonl(INADDR_LOOPBACK));
   TEST(port_of(res) == htons(8080));
+  // Check the terminating NUL and the first byte outside each output.
+  memset(host, '?', sizeof(host));
+  memset(port, '?', sizeof(port));
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof("127.0.0.1"),
+                   port, sizeof("8080"), numeric) == 0);
+  TEST(memcmp(host, "127.0.0.1\0?", sizeof("127.0.0.1") + 1) == 0);
+  TEST(memcmp(port, "8080\0?", sizeof("8080") + 1) == 0);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof("127.0.0.1") - 1,
+                   NULL, 0, numeric) == EAI_OVERFLOW);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, NULL, 0, port,
+                   sizeof("8080") - 1, numeric) == EAI_OVERFLOW);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), NULL, 0,
+                   NI_NAMEREQD) == EAI_NONAME);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen - 1, host, sizeof(host), NULL,
+                   0, numeric) == EAI_FAMILY);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), NULL, 0,
+                   -1) == EAI_BADFLAGS);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, 0, port, 0, numeric) ==
+       EAI_NONAME);
+  TEST(getnameinfo(res->ai_addr, 0, host, sizeof(host), NULL, 0, numeric) ==
+       EAI_FAMILY);
   freeaddrinfo(res);
 
   // IPv6 literal, dgram-only.
@@ -62,6 +85,35 @@ int main(void) {
   TEST(memcmp(&((struct sockaddr_in6 *)res->ai_addr)->sin6_addr,
               &in6addr_loopback, sizeof(struct in6_addr)) == 0);
   TEST(port_of(res) == htons(53));
+  ((struct sockaddr_in6 *)res->ai_addr)->sin6_scope_id = 7;
+  struct in6_addr v6 = {0};
+  port[0] = '?';
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), port, 0,
+                   numeric | NI_NUMERICSCOPE) == 0);
+  TEST(port[0] == '?');
+  char *scope = strchr(host, '%');
+  TEST(scope && strcmp(scope, "%7") == 0);
+  if (scope)
+    *scope = 0;
+  TEST(inet_pton(AF_INET6, host, &v6) == 1 && IN6_IS_ADDR_LOOPBACK(&v6));
+  host[0] = '?';
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, 0, port, sizeof(port),
+                   NI_DGRAM | NI_NAMEREQD) == 0);
+  TEST(host[0] == '?');
+  TEST(strcmp(port, "domain") == 0);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen - 1, host, sizeof(host), NULL,
+                   0, numeric) == EAI_FAMILY);
+  ((struct sockaddr_in6 *)res->ai_addr)->sin6_port =
+      htons(21); // FTP is TCP-only.
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, NULL, 0, port, sizeof(port),
+                   NI_DGRAM) == 0);
+  TEST(strcmp(port, "21") == 0);
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, NULL, 0, port, sizeof(port),
+                   0) == 0);
+  TEST(strcmp(port, "ftp") == 0);
+  res->ai_addr->sa_family = AF_UNSPEC;
+  TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), NULL, 0,
+                   numeric) == EAI_FAMILY);
   freeaddrinfo(res);
 
   // Literal of the wrong family is not a match.
