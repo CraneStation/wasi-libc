@@ -545,6 +545,8 @@ add_wasilibc_test(dup2-file.c FS)
 add_wasilibc_test(dup3-file.c FS)
 add_wasilibc_test(fcntl-dupfd.c FS)
 add_wasilibc_test(clear_fds.c FS)
+add_wasilibc_test(environ-reset.c ENV WASI_ENV_TEST=original WASI_ENV_EMPTY=
+  ENGINE_ARG "-Wmax-memory-size=2097152")
 if (NOT (WASI STREQUAL "p1"))
   add_wasilibc_test(preopens-reset.c FS ENGINE_ARG "-Wmax-memory-size=2097152")
 endif()
