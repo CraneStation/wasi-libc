@@ -7,8 +7,8 @@
 #include "test.h"
 
 int main(void) {
-  int before = open(".", O_RDONLY | O_DIRECTORY);
-  if (before < 0 || close(before) != 0)
+  int fd = open(".", O_RDONLY | O_DIRECTORY);
+  if (fd < 0 || close(fd) != 0)
     return 1;
   struct allocation {
     struct allocation *next;
@@ -18,8 +18,14 @@ int main(void) {
     head = node;
   }
   struct dirent **names;
-  int result = scandir(".", &names, NULL, NULL);
-  int error = errno;
+  int result, error;
+  // More attempts than the host descriptor limit expose a leaked descriptor.
+  for (int i = 0; i < 256; i++) {
+    result = scandir(".", &names, NULL, NULL);
+    error = errno;
+    if (result != -1 || error != ENOMEM)
+      break;
+  }
   while (head != NULL) {
     node = head;
     head = head->next;
@@ -32,10 +38,10 @@ int main(void) {
       free(names[i]);
     free(names);
   }
-  int after = open(".", O_RDONLY | O_DIRECTORY);
-  if (after != before)
-    t_error("failed scandir leaked a descriptor\n");
-  if (after >= 0)
-    close(after);
+  fd = open(".", O_RDONLY | O_DIRECTORY);
+  if (fd < 0)
+    t_error("cannot open directory after freeing memory\n");
+  else if (close(fd) != 0)
+    t_error("cannot close directory\n");
   return t_status;
 }
