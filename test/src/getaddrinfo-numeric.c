@@ -61,6 +61,19 @@ int main(void) {
                    NULL, 0, numeric) == EAI_OVERFLOW);
   TEST(getnameinfo(res->ai_addr, res->ai_addrlen, NULL, 0, port,
                    sizeof("8080") - 1, numeric) == EAI_OVERFLOW);
+  // Neither output changes when either buffer is too short.
+  const char unchanged_host[sizeof(host)] = {0},
+             unchanged_port[sizeof(port)] = {0};
+  for (int short_host = 0; short_host < 2; short_host++) {
+    memset(host, 0, sizeof(host));
+    memset(port, 0, sizeof(port));
+    TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host,
+                     short_host ? sizeof("127.0.0.1") - 1 : sizeof(host), port,
+                     short_host ? sizeof(port) : sizeof("8080") - 1,
+                     numeric) == EAI_OVERFLOW);
+    TEST(memcmp(host, unchanged_host, sizeof(host)) == 0);
+    TEST(memcmp(port, unchanged_port, sizeof(port)) == 0);
+  }
   TEST(getnameinfo(res->ai_addr, res->ai_addrlen, host, sizeof(host), NULL, 0,
                    NI_NAMEREQD) == EAI_NONAME);
   TEST(getnameinfo(res->ai_addr, res->ai_addrlen - 1, host, sizeof(host), NULL,
