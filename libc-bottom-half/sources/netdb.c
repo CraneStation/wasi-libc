@@ -318,6 +318,7 @@ int getaddrinfo(const char *restrict host, const char *restrict serv,
     ip_name_lookup_list_ip_address_t addresses;
     if (!ip_name_lookup_resolve_addresses(&name, &addresses, &error))
       return map_error(&error);
+    defer ip_name_lookup_list_ip_address_free(&addresses);
     size_t next = 0;
 #endif
 
@@ -352,10 +353,6 @@ int getaddrinfo(const char *restrict host, const char *restrict serv,
           !add_addr(address, htons(port), SOCK_DGRAM, hint, &current, &result))
         return EAI_MEMORY;
     }
-
-#ifndef __wasip2__
-    ip_name_lookup_list_ip_address_free(&addresses);
-#endif
   }
 
   if (result == NULL)

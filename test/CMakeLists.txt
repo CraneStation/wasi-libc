@@ -205,14 +205,23 @@ endfunction()
 # * `ENV a=b b=c` - set env vars for when executing this test
 # * `NETWORK` - this test uses the network and sockets.
 # * `PASS_REGULAR_EXPRESSION` - a regex that must match the test output to pass
+# * `HOST_FD_LIMIT` - cap host file descriptors (Unix Wasmtime only).
 # * `SETJMP` - this test requires setjmp/longjmp
 # * `FILE` - the wasm file to execute. Defaults to the output of
 #   `executable_name`.
 function(register_test test_name executable_name)
   set(options FS NETWORK SETJMP)
-  set(oneValueArgs CLIENT PASS_REGULAR_EXPRESSION ENGINE_ARG FILE)
+  set(oneValueArgs CLIENT PASS_REGULAR_EXPRESSION ENGINE_ARG FILE HOST_FD_LIMIT)
   set(multiValueArgs ARGV ENV)
   cmake_parse_arguments(PARSE_ARGV 1 arg "${options}" "${oneValueArgs}" "${multiValueArgs}")
+
+  set(test_launcher)
+  if (arg_HOST_FD_LIMIT AND TEST_WITH_V8)
+    return()
+  endif()
+  if (arg_HOST_FD_LIMIT AND UNIX)
+    list(APPEND test_launcher sh -c "ulimit -n \"$1\" && shift && exec \"$@\"" sh ${arg_HOST_FD_LIMIT})
+  endif()
 
   set(wasmtime_args)
 
@@ -257,7 +266,7 @@ function(register_test test_name executable_name)
   add_test(
     NAME "${test_name}"
     COMMAND
-      ${ENGINE}
+      ${test_launcher} ${ENGINE}
         ${wasmtime_args}
         ${test_program} ${arg_ARGV}
   )
@@ -519,6 +528,8 @@ add_wasilibc_test(readv.c FS)
 add_wasilibc_test(rename.c FS)
 add_wasilibc_test(rmdir.c FS)
 add_wasilibc_test(scandir.c FS)
+add_wasilibc_test(scandir-oom.c FS HOST_FD_LIMIT 128
+  ENGINE_ARG "-Wmax-memory-size=2097152")
 add_wasilibc_test(stat.c FS)
 add_wasilibc_test(stdio.c FS)
 add_wasilibc_test(stdio_nonblocking.c)
@@ -544,6 +555,14 @@ add_wasilibc_test(dup2-file.c FS)
 add_wasilibc_test(dup3-file.c FS)
 add_wasilibc_test(fcntl-dupfd.c FS)
 add_wasilibc_test(clear_fds.c FS)
+# The browser harness cannot set environment variables or limit guest memory.
+if (NOT TEST_WITH_V8)
+  add_wasilibc_test(environ-reset.c ENV WASI_ENV_TEST=original WASI_ENV_EMPTY=
+    ENGINE_ARG "-Wmax-memory-size=2097152")
+endif()
+if (NOT (WASI STREQUAL "p1"))
+  add_wasilibc_test(preopens-reset.c FS ENGINE_ARG "-Wmax-memory-size=2097152")
+endif()
 add_wasilibc_test(pipe.c)
 add_wasilibc_test(pipe_poll.c)
 add_wasilibc_test(pipe_fstat.c)

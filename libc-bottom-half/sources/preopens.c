@@ -76,10 +76,8 @@ static void preopen_state_assert_open(const preopen_state_t *state) {
 
 static int preopen_state_initialize(preopen_state_t *state, preopen_t fd) {
   state->libc_fd = __wasilibc_add_file(fd, O_RDWR);
-  if (state->libc_fd < 0) {
-    filesystem_descriptor_drop_own(fd);
+  if (state->libc_fd < 0)
     return -1;
-  }
   return 0;
 }
 
@@ -379,6 +377,9 @@ void __wasilibc_populate_preopens(void) {
     if (r != 0)
       goto software;
   }
+  // Names are freed above; descriptors now belong to the table.
+  if (preopens.len > 0)
+    free(preopens.ptr);
 
 #else
 #error "Unknown WASI version"
