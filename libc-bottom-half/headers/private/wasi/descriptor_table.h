@@ -145,12 +145,13 @@ typedef struct wasi_read_t {
   poll_own_pollable_t *pollable;
 #else
   wasip3_io_state_t *state;
+#endif
 
   // A callback/ptr pair to invoke when EOF is reached to set errno and return
-  // an error code.
+  // an error code. This is optional on wasip2, where a read at EOF otherwise
+  // returns 0.
   int (*eof)(void *);
   void *eof_data;
-#endif
 } wasi_read_t;
 
 // Same as `wasip_read_t`, but for writes.

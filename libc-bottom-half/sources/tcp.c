@@ -203,6 +203,7 @@ static int tcp_get_read_stream(void *data, wasi_read_t *read) {
 #ifdef __wasip2__
   read->input = streams_borrow_input_stream(state->input);
   read->pollable = &state->input_pollable;
+  read->eof = NULL;
 #else
   read->state = &state->receive;
   read->eof = tcp_read_eof;

@@ -21,7 +21,8 @@ typedef struct {
 #ifdef __wasip2__
   // Lazily initialized read/write streams which track the current position
   // in the file. Seeking will close these streams and cause them to be
-  // reopened on the next operation, for example.
+  // reopened on the next operation, for example, and reading to the end of
+  // the file closes the read stream.
   streams_own_input_stream_t read_stream;
   streams_own_output_stream_t write_stream;
   // Used for checking readiness to read/write to stream. Lazily initialized
@@ -81,11 +82,28 @@ static void file_free(void *data) {
   free(file);
 }
 
-#ifndef __wasip2__
+#ifdef __wasip2__
 static int file_read_eof(void *data) {
   file_t *file = (file_t *)data;
   STRONG_ASSERT_HELD(file->lock);
 
+  // An input stream stays closed once it reaches the end of the file, even if
+  // the file grows afterwards, so drop it and let the next read open a new
+  // stream at the same offset.
+  if (file->read_pollable.__handle != 0) {
+    poll_pollable_drop_own(file->read_pollable);
+    file->read_pollable.__handle = 0;
+  }
+  streams_input_stream_drop_own(file->read_stream);
+  file->read_stream.__handle = 0;
+  return 0;
+}
+#else
+static int file_read_eof(void *data) {
+  file_t *file = (file_t *)data;
+  STRONG_ASSERT_HELD(file->lock);
+
+  int ret = 0;
   if (file->read_result != 0) {
     filesystem_result_void_error_code_t result;
     __wasilibc_future_block_on(filesystem_future_result_void_error_code_read(
@@ -95,10 +113,16 @@ static int file_read_eof(void *data) {
     file->read_result = 0;
     if (result.is_err) {
       translate_error(&result.val.err);
-      return -1;
+      ret = -1;
     }
   }
-  return 0;
+
+  // As on wasip2, a stream that reached the end of the file doesn't see data
+  // appended afterwards, so the next read opens a new one, unless another
+  // thread is still waiting to read from this one.
+  if (!wasip3_io_state_blocked(&file->read))
+    wasip3_read_state_close(&file->read);
+  return ret;
 }
 #endif
 
@@ -131,9 +155,9 @@ static int file_get_read_stream(void *data, wasi_read_t *read) {
     file->read_result = result.f1;
   }
   read->state = &file->read;
+#endif
   read->eof = file_read_eof;
   read->eof_data = data;
-#endif
   read->offset = &file->offset;
   read->timeout = 0;
   read->blocking = true;

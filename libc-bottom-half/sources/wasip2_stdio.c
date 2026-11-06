@@ -49,6 +49,7 @@ static int stdio_get_read_stream(void *data, wasi_read_t *read) {
   read->input = streams_borrow_input_stream(stdio->input);
   read->offset = NULL;
   read->pollable = &stdio->input_pollable;
+  read->eof = NULL;
   read->timeout = 0;
   read->blocking = !stdio->nonblocking;
   return 0;

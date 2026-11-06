@@ -701,8 +701,12 @@ static ssize_t __wasilibc_read_without_offset_update(wasi_read_t *read,
     streams_stream_error_t error;
 
     // Attempt a read for the `length` we were passed in.
-    if (!streams_method_input_stream_read(read->input, length, &result, &error))
+    if (!streams_method_input_stream_read(read->input, length, &result,
+                                          &error)) {
+      if (error.tag == STREAMS_STREAM_ERROR_CLOSED && read->eof)
+        return read->eof(read->eof_data);
       return wasip2_handle_read_error(error);
+    }
 
     // For empty reads after performing a successful 0-length read go ahead and
     // bail out.
