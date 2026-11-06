@@ -394,6 +394,7 @@ __wasilibc_nocwd_symlinkat
 __wasilibc_nocwd_utimensat
 __wasilibc_open_nomode
 __wasilibc_populate_preopens
+__wasilibc_preopen_kind
 __wasilibc_pthread_self
 __wasilibc_register_preopened_fd
 __wasilibc_rename_newat

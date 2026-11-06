@@ -353,6 +353,7 @@ __wasilibc_poll_add
 __wasilibc_poll_ready
 __wasilibc_pollable_block_on
 __wasilibc_populate_preopens
+__wasilibc_preopen_kind
 __wasilibc_pthread_self
 __wasilibc_random
 __wasilibc_read

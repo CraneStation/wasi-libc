@@ -306,6 +306,66 @@ int __wasilibc_find_abspath(const char *path, const char **abs_prefix,
   return fd;
 }
 
+/// Where the absolute path `path` (`len` bytes, slash-separated, with no `.`
+/// or `..` component) stands among the preopens, for `realpath` (see
+/// libc-top-half/musl/src/misc/realpath.c):
+///
+///  * 2 - an exact preopen mount, or an ancestor with no broader preopen.
+///    These are synthetic directories: the host may refuse readlink on a
+///    mount itself and no host descriptor reaches an inaccessible ancestor.
+///  * 1 - below a preopen, unless the path is itself an exact mount. A
+///    nested mount does not hide a symlink reachable through a broader one.
+///  * 0 - no preopen reaches the path: the program has no such file.
+__attribute__((__visibility__("hidden"))) int
+__wasilibc_preopen_kind(const char *path, size_t len);
+
+#define PREOPEN_OUTSIDE 0
+#define PREOPEN_INSIDE 1
+#define PREOPEN_MOUNT 2
+
+int __wasilibc_preopen_kind(const char *path, size_t len) {
+  __wasilibc_populate_preopens();
+
+  // Compare without the leading `/`, as the prefixes are stored.
+  while (len > 0 && *path == '/') {
+    path++;
+    len--;
+  }
+  // The root holds every preopen.
+  if (len == 0)
+    return PREOPEN_MOUNT;
+
+  int kind = PREOPEN_OUTSIDE;
+  int ancestor = 0;
+  STRONG_LOCK(lock);
+  for (size_t i = 0; i < num_preopens; ++i) {
+    const char *prefix = preopens[i].prefix;
+    size_t prefix_len = strlen(prefix);
+    // Ignore trailing slashes in directory names.
+    while (prefix_len > 0 && prefix[prefix_len - 1] == '/')
+      --prefix_len;
+
+    if (prefix_len >= len) {
+      if (memcmp(prefix, path, len) == 0) {
+        if (prefix_len == len) {
+          // An exact mount remains a directory even under a broader mount.
+          kind = PREOPEN_MOUNT;
+          break;
+        }
+        if (prefix[len] == '/')
+          ancestor = 1;
+      }
+    } else if (prefix_len == 0 || (memcmp(prefix, path, prefix_len) == 0 &&
+                                   path[prefix_len] == '/')) {
+      // Accessible ancestors must be resolved through the host. Keep
+      // looking only for an exact mount, which takes precedence.
+      kind = PREOPEN_INSIDE;
+    }
+  }
+  STRONG_UNLOCK(lock);
+  return kind == PREOPEN_OUTSIDE && ancestor ? PREOPEN_MOUNT : kind;
+}
+
 void __wasilibc_populate_preopens(void) {
   // Fast path: If the preopens are already initialized, do nothing.
   if (preopens_populated) {
